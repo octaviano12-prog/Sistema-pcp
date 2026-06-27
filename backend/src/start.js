@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import('./server/index.js').catch(err => {
+import('./index.js').catch(err => {
   console.error('Failed to start:', err);
   process.exit(1);
 });

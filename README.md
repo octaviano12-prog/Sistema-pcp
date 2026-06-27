@@ -1,197 +1,167 @@
-# PCP Pro Industrial
+# Sistema PCP
 
-Sistema SaaS completo de Planejamento e Controle da Produção (PCP) para empresas industriais.
+Sistema de gestao PCP para controle de producao, produtos, clientes, estoque, ordens de venda, ordens de producao, apontamentos, maquinas, roteiros, usuarios, assinaturas, dashboard e relatorios.
 
-## 🚀 Funcionalidades
+## Tecnologias
 
-### Site Comercial
-- Landing page profissional e responsiva
-- Apresentação de recursos e benefícios
-- Planos e preços
-- Formulário de contato
-
-### Painel Administrativo
-- **Dashboard** com KPIs e gráficos em tempo real
-- **Gestão de Produtos** com ficha técnica completa
-- **Controle de Estoque** com movimentações e alertas
-- **Pedidos de Venda** com planejamento automático
-- **Ordens de Produção** com apontamento de chão de fábrica
-- **Máquinas e Centros de Trabalho**
-- **Roteiros de Produção**
-- **Relatórios** de produção, custos e estoque
-- **Multiempresa** com controle de acesso por perfil
-
-## 🔐 Contas de Demonstração
-
-### Super Admin (Administrador do Sistema)
-- **Email:** superadmin@pcppro.com
-- **Senha:** admin123
-
-### Admin da Empresa (Metalúrgica Modelo)
-- **Email:** carlos@metalurgica.com
-- **Senha:** demo123
-
-### PCP
-- **Email:** ana@metalurgica.com
-- **Senha:** demo123
-
-### Produção
-- **Email:** joao@metalurgica.com
-- **Senha:** demo123
-
-### Estoque
-- **Email:** maria@metalurgica.com
-- **Senha:** demo123
-
-## 🛠️ Tecnologias
-
-### Backend
-- Node.js + Express
-- SQLite (sql.js - WASM puro, sem dependências nativas)
-- JWT para autenticação
-- Bcrypt para senhas
-
-### Frontend
-- React 18 + Vite
+- React 18
+- Vite
+- Node.js
+- Express
+- JWT
 - Tailwind CSS
-- React Router
-- Recharts para gráficos
-- Lucide React para ícones
+- sql.js para banco local em arquivo
+- SQL de referencia em `database/`
 
-## 📦 Instalação e Execução
+## Estrutura
 
-### Pré-requisitos
-- Node.js 18+
-- npm ou yarn
+```txt
+sistema-pcp/
+├── frontend/
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── index.html
+│   └── .env.example
+├── backend/
+│   ├── src/
+│   ├── uploads/
+│   ├── data/
+│   ├── package.json
+│   └── .env.example
+├── database/
+│   ├── schema.sql
+│   ├── seed.sql
+│   └── migrations/
+├── package.json
+├── package-lock.json
+├── .gitignore
+└── README.md
+```
 
-### Passos
+## Como rodar localmente
 
-1. **Instalar dependências:**
+### 1. Clonar o repositorio
+
+```bash
+git clone https://github.com/octaviano12-prog/Sistema-pcp.git
+cd Sistema-pcp
+```
+
+### 2. Instalar dependencias
+
 ```bash
 npm install
 ```
 
-2. **Build do frontend:**
+### 3. Configurar ambiente
+
+Copie os exemplos se quiser customizar variaveis:
+
 ```bash
-npm run build
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-3. **Iniciar servidor:**
-```bash
-npm start
+Variaveis principais do backend:
+
+```env
+PORT=3000
+JWT_SECRET=troque_esta_chave_em_producao
+FRONTEND_URL=http://localhost:5173
 ```
 
-O sistema estará disponível em: `http://localhost:3000`
-
-### Modo Desenvolvimento
-
-Para desenvolvimento com hot reload:
+### 4. Rodar em desenvolvimento
 
 ```bash
 npm run dev
 ```
 
-Isso iniciará:
-- Backend em `http://localhost:3000`
-- Frontend em `http://localhost:5173`
+Backend: `http://localhost:3000`  
+Frontend: `http://localhost:5173`
 
-## 📁 Estrutura do Projeto
+### 5. Gerar build de producao
 
-```
-sistema-pcp/
-├── server/              # Backend Node.js + Express
-│   ├── index.js        # Servidor e rotas API
-│   ├── db.js           # Configuração do banco SQLite (sql.js)
-│   └── middleware/     # Middleware de autenticação
-├── client/             # Frontend React
-│   ├── src/
-│   │   ├── components/ # Componentes reutilizáveis
-│   │   ├── pages/      # Páginas do sistema
-│   │   ├── contexts/   # Contextos React (Auth)
-│   │   └── lib/        # Utilitários (API client)
-│   └── dist/           # Build de produção
-├── package.json
-├── vite.config.js
-├── tailwind.config.js
-└── postcss.config.js
+```bash
+npm run build
+npm start
 ```
 
-## 🔌 API REST
+O backend Express serve o frontend compilado em `frontend/dist`.
 
-### Autenticação
-- `POST /api/auth/login` - Login
-- `GET /api/auth/me` - Dados do usuário autenticado
+## Deploy na Hostinger
 
-### Principais Endpoints
-- `/api/companies` - Empresas
-- `/api/users` - Usuários
-- `/api/customers` - Clientes
-- `/api/products` - Produtos
-- `/api/boms` - Fichas técnicas
-- `/api/routes` - Roteiros de produção
-- `/api/machines` - Máquinas
-- `/api/stock` - Estoque
-- `/api/sales-orders` - Pedidos de venda
-- `/api/production-orders` - Ordens de produção
-- `/api/production-logs` - Apontamentos
-- `/api/dashboard/*` - Dashboard
-- `/api/reports/*` - Relatórios
+Use a opcao Node.js/Express com:
 
-## 🎯 Módulos do Sistema
+```txt
+Framework: Express
+Branch: main
+Node: 22.x
+Diretorio raiz: ./
+Install command: npm install
+Build command: npm run build
+Start command: npm start
+```
 
-1. **Dashboard** - KPIs e visão geral
-2. **Produtos** - Cadastro completo com tipos
-3. **Clientes** - Gestão de clientes
-4. **Estoque** - Controle com movimentações
-5. **Pedidos** - Pedidos de venda
-6. **Planejamento PCP** - Planejamento de produção
-7. **Ordens de Produção** - OPs com fluxos de trabalho
-8. **Apontamento** - Registro de produção
-9. **Máquinas** - Centros de trabalho
-10. **Ficha Técnica** - Composição de produtos
-11. **Roteiros** - Operações de fabricação
-12. **Relatórios** - Análises e exportações
-13. **Usuários** - Gestão de acessos
-14. **Configurações** - Dados da empresa
-15. **Assinaturas** - Planos e billing
+Adicione variaveis de ambiente na Hostinger:
 
-## 🔒 Segurança
+```env
+NODE_ENV=production
+JWT_SECRET=coloque_uma_chave_grande_e_secreta
+```
 
-- Senhas criptografadas com bcrypt
-- Autenticação JWT
-- Controle de acesso por perfil
-- Isolamento multiempresa (company_id)
-- Validação de dados
+## Banco de dados
 
-## 📊 Perfis de Usuário
+O app atual usa `sql.js`, que grava o banco em `backend/data/pcp_pro.db`. Esse arquivo nao deve ser enviado ao GitHub.
 
-- **Super Admin** - Acesso total ao sistema
-- **Admin** - Administrador da empresa
-- **PCP** - Planejamento e controle
-- **Produção** - Apontamento de produção
-- **Estoque** - Movimentações de estoque
-- **Compras** - Necessidades de compra
-- **Financeiro** - Custos e financeiro
-- **Visualizador** - Apenas consulta
+A pasta `database/` contem SQL de referencia:
 
-## 🎨 Design
+- `database/schema.sql`: estrutura das tabelas
+- `database/seed.sql`: dados iniciais basicos
+- `database/migrations/`: futuras migracoes
 
-- Interface moderna e responsiva
-- Tema profissional industrial
-- Cores: Azul escuro, branco, cinza, verde/laranja
-- Componentes reutilizáveis
-- Mobile-first
+Para a demo completa, o backend popula dados automaticamente quando o banco ainda esta vazio.
 
-## 📝 Licença
+## Usuarios de demonstracao
 
-Sistema proprietário - PCP Pro Industrial
+```txt
+Super Admin: superadmin@pcppro.com / admin123
+Admin: carlos@metalurgica.com / demo123
+PCP: ana@metalurgica.com / demo123
+Producao: joao@metalurgica.com / demo123
+Estoque: maria@metalurgica.com / demo123
+```
 
-## 💼 Contato
+## Scripts
 
-Para demonstrações e vendas:
-- WhatsApp: (11) 99999-0000
-- Email: contato@pcppro.com.br
+Raiz:
 
----
+```bash
+npm run dev
+npm run build
+npm start
+npm run seed
+```
 
-**PCP Pro Industrial** - Controle sua produção do pedido à entrega.
+Frontend:
+
+```bash
+npm --workspace frontend run dev
+npm --workspace frontend run build
+```
+
+Backend:
+
+```bash
+npm --workspace backend run dev
+npm --workspace backend start
+```
+
+## Observacoes de seguranca
+
+- Nao subir `.env`.
+- Trocar `JWT_SECRET` em producao.
+- Nao versionar `backend/data/*.db`.
+- Nao versionar `frontend/dist`.
+- As senhas acima sao apenas para ambiente de demonstracao.

@@ -4,7 +4,8 @@ import { dirname, join } from 'path';
 import fs from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbPath = join(__dirname, 'pcp_pro.db');
+const dataDir = join(__dirname, '..', 'data');
+const dbPath = join(dataDir, 'pcp_pro.db');
 
 let db = null;
 
@@ -68,6 +69,7 @@ class DatabaseWrapper {
 
 export async function initDatabase() {
   const SQL = await initSqlJs();
+  fs.mkdirSync(dataDir, { recursive: true });
   
   // Try to load existing database
   if (fs.existsSync(dbPath)) {

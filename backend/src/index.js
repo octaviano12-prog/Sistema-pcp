@@ -10,11 +10,13 @@ import { authenticateToken, requireRole, requireCompany, JWT_SECRET } from './mi
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
+const frontendDistPath = join(__dirname, '..', '..', 'frontend', 'dist');
+const uploadsPath = join(__dirname, '..', 'uploads');
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(join(__dirname, '..', 'client', 'dist')));
-app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
+app.use(express.static(frontendDistPath));
+app.use('/uploads', express.static(uploadsPath));
 
 // Helper: get company_id filter
 function companyFilter(req) {
@@ -647,7 +649,7 @@ function logAudit(company_id, user_id, action, entity, entity_id, old_value, new
 
 // SPA fallback
 app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, '..', 'client', 'dist', 'index.html'));
+  res.sendFile(join(frontendDistPath, 'index.html'));
 });
 
 async function startServer() {
