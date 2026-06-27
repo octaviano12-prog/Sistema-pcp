@@ -19,6 +19,7 @@ import Reports from './pages/Reports.jsx';
 import Users from './pages/Users.jsx';
 import Settings from './pages/Settings.jsx';
 import Subscriptions from './pages/Subscriptions.jsx';
+import FiscalInvoices from './pages/FiscalInvoices.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -46,6 +47,7 @@ function AppRoutes() {
         <Route path="bom" element={<BOM />} />
         <Route path="routes" element={<RoutesModule />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="fiscal-invoices" element={<FiscalInvoices />} />
         <Route path="users" element={<Users />} />
         <Route path="settings" element={<Settings />} />
         <Route path="subscriptions" element={<Subscriptions />} />

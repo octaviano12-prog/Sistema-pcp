@@ -29,6 +29,17 @@ function companyFilter(req) {
   return { company_id: req.user.company_id };
 }
 
+function generateFiscalAccessKey(companyId, invoiceId) {
+  const now = new Date();
+  const yearMonth = `${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const random = `${companyId}${invoiceId}${Date.now()}`.replace(/\D/g, '').padEnd(38, '0').slice(0, 38);
+  return `35${yearMonth}${random}`.slice(0, 44);
+}
+
+function generateFiscalProtocol() {
+  return `135${Date.now()}`.slice(0, 15);
+}
+
 // ==================== AUTH ====================
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
@@ -348,6 +359,115 @@ app.delete('/api/sales-orders/:id', authenticateToken, async (req, res) => {
   await getDb().prepare('DELETE FROM sales_order_items WHERE sales_order_id = ?').run(req.params.id);
   await getDb().prepare('DELETE FROM sales_orders WHERE id = ? AND company_id = ?').run(req.params.id, req.user.company_id);
   res.json({ success: true });
+});
+
+// ==================== FISCAL INVOICES (DEMO NF-e) ====================
+app.get('/api/fiscal-invoices', authenticateToken, async (req, res) => {
+  const filter = companyFilter(req);
+  const companyId = filter.company_id || req.user.company_id;
+  const invoices = await getDb().prepare(`
+    SELECT fi.*, so.order_number, c.name as customer_name, c.document as customer_document
+    FROM fiscal_invoices fi
+    LEFT JOIN sales_orders so ON fi.sales_order_id = so.id
+    LEFT JOIN customers c ON fi.customer_id = c.id
+    WHERE fi.company_id = ?
+    ORDER BY fi.created_at DESC
+  `).all(companyId);
+
+  if (invoices.length > 0) return res.json(invoices);
+
+  const orders = await getDb().prepare(`
+    SELECT so.*, c.name as customer_name
+    FROM sales_orders so
+    LEFT JOIN customers c ON so.customer_id = c.id
+    WHERE so.company_id = ?
+    ORDER BY so.created_at DESC
+    LIMIT 3
+  `).all(companyId);
+
+  for (const [index, order] of orders.entries()) {
+    const items = await getDb().prepare('SELECT total_price FROM sales_order_items WHERE sales_order_id = ?').all(order.id);
+    const totalValue = items.reduce((sum, item) => sum + Number(item.total_price || 0), 0);
+    const status = index === 0 ? 'authorized' : index === 1 ? 'processing' : 'rejected';
+    const result = await getDb().prepare(`
+      INSERT INTO fiscal_invoices (company_id, sales_order_id, customer_id, invoice_number, status, environment, total_value, access_key, protocol, notes, error_message)
+      VALUES (?, ?, ?, ?, ?, 'homologation', ?, ?, ?, ?, ?)
+    `).run(
+      companyId,
+      order.id,
+      order.customer_id,
+      `NF-${String(index + 1).padStart(4, '0')}`,
+      status,
+      totalValue,
+      status === 'authorized' ? generateFiscalAccessKey(companyId, index + 1) : null,
+      status === 'authorized' ? generateFiscalProtocol() : null,
+      'Nota fiscal demonstrativa para apresentação comercial.',
+      status === 'rejected' ? 'Cadastro fiscal incompleto: IE/CNPJ do destinatário pendente.' : null
+    );
+    if (status === 'authorized') {
+      await getDb().prepare('UPDATE fiscal_invoices SET access_key=?, protocol=? WHERE id=?').run(generateFiscalAccessKey(companyId, result.lastInsertRowid), generateFiscalProtocol(), result.lastInsertRowid);
+    }
+  }
+
+  const seeded = await getDb().prepare(`
+    SELECT fi.*, so.order_number, c.name as customer_name, c.document as customer_document
+    FROM fiscal_invoices fi
+    LEFT JOIN sales_orders so ON fi.sales_order_id = so.id
+    LEFT JOIN customers c ON fi.customer_id = c.id
+    WHERE fi.company_id = ?
+    ORDER BY fi.created_at DESC
+  `).all(companyId);
+  res.json(seeded);
+});
+
+app.post('/api/fiscal-invoices', authenticateToken, async (req, res) => {
+  const company_id = req.user.company_id;
+  const { sales_order_id, notes } = req.body;
+  const order = await getDb().prepare('SELECT * FROM sales_orders WHERE id = ? AND company_id = ?').get(sales_order_id, company_id);
+  if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+
+  const existing = await getDb().prepare('SELECT id FROM fiscal_invoices WHERE sales_order_id = ? AND company_id = ? AND status != ?').get(sales_order_id, company_id, 'cancelled');
+  if (existing) return res.status(400).json({ error: 'Este pedido já possui nota fiscal ativa' });
+
+  const items = await getDb().prepare('SELECT total_price FROM sales_order_items WHERE sales_order_id = ?').all(sales_order_id);
+  const totalValue = items.reduce((sum, item) => sum + Number(item.total_price || 0), 0);
+  const lastInvoice = await getDb().prepare('SELECT invoice_number FROM fiscal_invoices WHERE company_id = ? ORDER BY id DESC LIMIT 1').get(company_id);
+  const nextNum = lastInvoice ? parseInt(lastInvoice.invoice_number.replace('NF-', '')) + 1 : 1;
+  const invoice_number = `NF-${String(nextNum).padStart(4, '0')}`;
+
+  const result = await getDb().prepare(`
+    INSERT INTO fiscal_invoices (company_id, sales_order_id, customer_id, invoice_number, status, environment, total_value, notes)
+    VALUES (?, ?, ?, ?, 'draft', 'homologation', ?, ?)
+  `).run(company_id, sales_order_id, order.customer_id, invoice_number, totalValue, notes || 'Nota criada a partir do pedido de venda.');
+
+  res.json({ id: result.lastInsertRowid, invoice_number, status: 'draft', total_value: totalValue });
+});
+
+app.post('/api/fiscal-invoices/:id/issue', authenticateToken, async (req, res) => {
+  const invoice = await getDb().prepare('SELECT * FROM fiscal_invoices WHERE id = ? AND company_id = ?').get(req.params.id, req.user.company_id);
+  if (!invoice) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
+  if (invoice.status === 'cancelled') return res.status(400).json({ error: 'Nota cancelada não pode ser emitida' });
+
+  const accessKey = generateFiscalAccessKey(req.user.company_id, invoice.id);
+  const protocol = generateFiscalProtocol();
+  await getDb().prepare(`
+    UPDATE fiscal_invoices
+    SET status='authorized', access_key=?, protocol=?, error_message=NULL, issue_date=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+    WHERE id=? AND company_id=?
+  `).run(accessKey, protocol, req.params.id, req.user.company_id);
+  res.json({ success: true, status: 'authorized', access_key: accessKey, protocol });
+});
+
+app.post('/api/fiscal-invoices/:id/cancel', authenticateToken, async (req, res) => {
+  const invoice = await getDb().prepare('SELECT * FROM fiscal_invoices WHERE id = ? AND company_id = ?').get(req.params.id, req.user.company_id);
+  if (!invoice) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
+
+  await getDb().prepare(`
+    UPDATE fiscal_invoices
+    SET status='cancelled', notes=?, updated_at=CURRENT_TIMESTAMP
+    WHERE id=? AND company_id=?
+  `).run(req.body?.reason || 'Cancelamento demonstrativo realizado pelo sistema.', req.params.id, req.user.company_id);
+  res.json({ success: true, status: 'cancelled' });
 });
 
 // ==================== PRODUCTION ORDERS ====================

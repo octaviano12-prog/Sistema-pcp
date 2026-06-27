@@ -290,6 +290,30 @@ CREATE TABLE IF NOT EXISTS sales_order_items (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS fiscal_invoices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  sales_order_id INT,
+  customer_id INT,
+  invoice_number VARCHAR(120) NOT NULL,
+  series VARCHAR(20) DEFAULT '1',
+  model VARCHAR(20) DEFAULT '55',
+  type VARCHAR(32) DEFAULT 'nfe',
+  status VARCHAR(64) DEFAULT 'draft',
+  environment VARCHAR(32) DEFAULT 'homologation',
+  issue_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  total_value DECIMAL(15,4) DEFAULT 0,
+  access_key VARCHAR(80),
+  protocol VARCHAR(80),
+  provider VARCHAR(120) DEFAULT 'Demo Fiscal',
+  error_message TEXT,
+  xml_url TEXT,
+  pdf_url TEXT,
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS production_orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
   company_id INT NOT NULL,
