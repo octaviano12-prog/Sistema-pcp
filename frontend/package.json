@@ -10,15 +10,13 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.3",
+    "autoprefixer": "^10.4.17",
     "lucide-react": "^0.323.0",
+    "postcss": "^8.4.33",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0",
-    "recharts": "^2.12.0"
-  },
-  "devDependencies": {
-    "autoprefixer": "^10.4.17",
-    "postcss": "^8.4.33",
+    "recharts": "^2.12.0",
     "tailwindcss": "^3.4.1",
     "vite": "^8.1.0"
   }
