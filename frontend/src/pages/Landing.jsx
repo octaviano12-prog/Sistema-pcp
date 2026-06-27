@@ -31,9 +31,9 @@ const modules = [
 ];
 
 const plans = [
-  { name: 'Starter', price: '147', desc: 'Para pequenas fábricas saírem da planilha.', features: ['Até 3 usuários', 'Produtos e estoque', 'Ordens de produção', 'Dashboard básico'] },
-  { name: 'Profissional', price: '297', desc: 'Para operação em crescimento com PCP ativo.', features: ['Até 10 usuários', 'Ficha técnica completa', 'Apontamento de produção', 'Relatórios e custos'], highlight: true },
-  { name: 'Industrial', price: '597', desc: 'Para operação completa com vários setores.', features: ['Usuários ilimitados', 'MRP e carga máquina', 'Controle de qualidade', 'Suporte prioritário'] },
+  { name: 'Starter', price: '147', desc: 'Para começar com cadastros, estoque e OPs essenciais.', features: ['Até 3 usuários', 'Produtos e estoque', 'Ordens de produção', 'Dashboard básico'] },
+  { name: 'Profissional', price: '297', desc: 'Mais vendido para PCP completo com apontamento e custos.', features: ['Até 10 usuários', 'Ficha técnica completa', 'Apontamento de produção', 'Relatórios e custos'], highlight: true },
+  { name: 'Industrial', price: '597', desc: 'Para fábricas com equipes, setores e rotina mais complexa.', features: ['Usuários ilimitados', 'Planejamento avançado', 'Relatórios gerenciais', 'Suporte prioritário'] },
 ];
 
 export default function Landing() {
@@ -41,49 +41,58 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <nav className="fixed top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur">
+      <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-[#06142d]/90 text-white backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 shadow-lg shadow-primary-900/40">
               <Factory className="h-5 w-5 text-white" />
             </div>
             <div>
-              <span className="block text-sm font-bold leading-tight text-gray-950">PCP Pro</span>
-              <span className="block text-[11px] font-medium uppercase tracking-wide text-gray-500">Industrial</span>
+              <span className="block text-sm font-bold leading-tight text-white">PCP Pro</span>
+              <span className="block text-[11px] font-medium uppercase tracking-wide text-blue-200">Industrial</span>
             </div>
           </Link>
 
           <div className="hidden items-center gap-7 md:flex">
-            <a href="#recursos" className="text-sm font-medium text-gray-600 hover:text-primary-700">Recursos</a>
-            <a href="#planos" className="text-sm font-medium text-gray-600 hover:text-primary-700">Planos</a>
-            <a href="#contato" className="text-sm font-medium text-gray-600 hover:text-primary-700">Contato</a>
-            <Link to="/login" className="btn-primary">Acessar sistema</Link>
+            <a href="#recursos" className="text-sm font-medium text-blue-100 hover:text-white">Recursos</a>
+            <a href="#planos" className="text-sm font-medium text-blue-100 hover:text-white">Planos</a>
+            <a href="#contato" className="text-sm font-medium text-blue-100 hover:text-white">Contato</a>
+            <Link to="/login" className="btn-primary shadow-lg shadow-primary-950/30">Acessar sistema</Link>
           </div>
 
-          <button className="rounded-lg p-2 text-gray-600 md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu">
+          <button className="rounded-lg p-2 text-blue-100 md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu">
             {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
 
         {menuOpen && (
-          <div className="space-y-3 border-t border-gray-100 bg-white px-4 py-4 md:hidden">
-            <a href="#recursos" className="block text-sm font-medium text-gray-600">Recursos</a>
-            <a href="#planos" className="block text-sm font-medium text-gray-600">Planos</a>
-            <a href="#contato" className="block text-sm font-medium text-gray-600">Contato</a>
+          <div className="space-y-3 border-t border-white/10 bg-[#06142d] px-4 py-4 md:hidden">
+            <a href="#recursos" className="block text-sm font-medium text-blue-100">Recursos</a>
+            <a href="#planos" className="block text-sm font-medium text-blue-100">Planos</a>
+            <a href="#contato" className="block text-sm font-medium text-blue-100">Contato</a>
             <Link to="/login" className="btn-primary justify-center">Acessar sistema</Link>
           </div>
         )}
       </nav>
 
-      <section className="overflow-hidden bg-gray-950 pt-24 text-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 pb-14 sm:px-6 lg:grid-cols-[1fr_520px] lg:px-8 lg:pb-20">
+      <section
+        className="relative overflow-hidden bg-[#06142d] pt-24 text-white"
+        style={{
+          backgroundImage:
+            'linear-gradient(90deg, rgba(3, 12, 31, 0.96) 0%, rgba(6, 20, 45, 0.9) 42%, rgba(7, 38, 88, 0.72) 100%), url(https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=1800&q=80)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(37,99,235,0.36),transparent_30%),radial-gradient(circle_at_18%_85%,rgba(249,115,22,0.22),transparent_28%)]" />
+        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 pb-14 sm:px-6 lg:grid-cols-[1fr_560px] lg:px-8 lg:pb-20">
           <div className="flex flex-col justify-center">
             <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-blue-100">
               <Zap className="h-4 w-4 text-amber-300" />
               Sistema online para controle de produção industrial
             </div>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-normal sm:text-5xl lg:text-6xl">
-              PCP Pro Industrial
+              PCP Pro <span className="text-blue-400">Industrial</span>
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-gray-300">
               Controle pedidos, estoque, fichas técnicas, ordens de produção, apontamentos e custos em uma plataforma pronta para pequenas e médias indústrias.
@@ -107,7 +116,7 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white p-4 text-gray-900 shadow-2xl">
+          <div className="rounded-xl border border-white/20 bg-white p-4 text-gray-900 shadow-2xl shadow-blue-950/30">
             <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Dashboard</p>
@@ -227,13 +236,24 @@ export default function Landing() {
         </div>
       </section>
 
-      <section id="contato" className="bg-primary-700 px-4 py-20 text-white sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
+      <section
+        id="contato"
+        className="relative overflow-hidden bg-primary-800 px-4 py-20 text-white sm:px-6 lg:px-8"
+        style={{
+          backgroundImage:
+            'linear-gradient(90deg, rgba(7, 28, 77, 0.96), rgba(9, 48, 120, 0.84)), url(https://images.unsplash.com/photo-1565043589221-1a6fd9ae45c7?auto=format&fit=crop&w=1800&q=80)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="relative mx-auto max-w-5xl">
+          <div className="max-w-2xl">
           <h2 className="text-3xl font-bold">Pronto para apresentar o PCP Pro para uma indústria?</h2>
           <p className="mt-4 text-lg leading-8 text-primary-50">
             Entre pelo sistema, use os dados de demonstração e mostre um fluxo completo: pedido, estoque, produção, apontamento e dashboard.
           </p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          </div>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link to="/login" className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-7 py-3 font-semibold text-primary-700 hover:bg-gray-100">
               Acessar demonstração
               <ChevronRight className="h-5 w-5" />
