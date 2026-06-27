@@ -4,7 +4,7 @@
   "description": "Sistema PCP com frontend React/Vite e backend Express.",
   "private": true,
   "type": "module",
-  "main": "index.js",
+  "main": "server.js",
   "workspaces": [
     "frontend",
     "backend"
@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "concurrently \"npm --workspace backend run dev\" \"npm --workspace frontend run dev\"",
     "build": "npm --workspace frontend run build",
-    "start": "node index.js",
+    "start": "node server.js",
     "seed": "npm --workspace backend run seed"
   },
   "devDependencies": {
