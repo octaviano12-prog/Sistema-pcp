@@ -18,6 +18,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(frontendDistPath));
 app.use('/uploads', express.static(uploadsPath));
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // Helper: get company_id filter
 function companyFilter(req) {
   if (req.user.role === 'super_admin') return {};
