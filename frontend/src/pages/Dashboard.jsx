@@ -61,14 +61,14 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className="stat-card">
-            <div className="mb-2 flex items-center justify-between">
-              <div className={`flex h-14 w-14 items-center justify-center rounded-xl ${s.bg}`}>
-                <s.icon className={`h-7 w-7 ${s.color}`} />
-              </div>
+          <div key={s.label} className="stat-card flex min-h-[112px] items-center gap-4">
+            <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl ${s.bg}`}>
+              <s.icon className={`h-7 w-7 ${s.color}`} />
             </div>
-            <p className="stat-value break-words">{s.value}</p>
-            <p className="stat-label">{s.label}</p>
+            <div className="min-w-0">
+              <p className="stat-value break-words leading-tight">{s.value}</p>
+              <p className="stat-label mt-1">{s.label}</p>
+            </div>
           </div>
         ))}
       </div>
