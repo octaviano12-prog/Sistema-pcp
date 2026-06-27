@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { ClipboardList, AlertTriangle, CheckCircle, Factory, Package, DollarSign, TrendingUp, AlertCircle, Clock } from 'lucide-react';
+import { ClipboardList, AlertTriangle, CheckCircle, Factory, Package, DollarSign, TrendingUp, AlertCircle, Clock, BarChart3 } from 'lucide-react';
 
 const COLORS = ['#1e40af', '#22c55e', '#f97316', '#ef4444', '#8b5cf6', '#6b7280', '#06b6d4'];
 const statusLabels = { planned: 'Planejada', released: 'Liberada', in_production: 'Em produção', paused: 'Pausada', finished: 'Finalizada', cancelled: 'Cancelada', delayed: 'Atrasada' };
 const formatNumber = (value) => Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 const formatCurrency = (value) => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const formatChartDay = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime())) return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  return String(value).slice(5, 10);
+};
 
 export default function Dashboard() {
   const [summary, setSummary] = useState({});
@@ -25,14 +31,14 @@ export default function Dashboard() {
   if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600" /></div>;
 
   const stats = [
-    { label: 'OPs Abertas', value: summary.openOps || 0, icon: ClipboardList, color: 'text-blue-600', bg: 'bg-blue-100' },
-    { label: 'OPs Atrasadas', value: summary.delayedOps || 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100' },
-    { label: 'Finalizadas no Mês', value: summary.finishedThisMonth || 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100' },
-    { label: 'Produção Hoje', value: formatNumber(summary.todayProduction), icon: Factory, color: 'text-purple-600', bg: 'bg-purple-100' },
-    { label: 'Estoque Crítico', value: summary.criticalStock || 0, icon: Package, color: 'text-orange-600', bg: 'bg-orange-100' },
-    { label: 'Custo Previsto (Mês)', value: formatCurrency(summary.plannedCostMonth), icon: DollarSign, color: 'text-cyan-600', bg: 'bg-cyan-100' },
-    { label: 'Custo Real (Mês)', value: formatCurrency(summary.realCostMonth), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-100' },
-    { label: 'Refugos (Mês)', value: formatNumber(summary.totalScrap), icon: AlertCircle, color: 'text-rose-600', bg: 'bg-rose-100' },
+    { label: 'OPs Abertas', value: summary.openOps || 0, icon: ClipboardList, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'OPs Atrasadas', value: summary.delayedOps || 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'Finalizadas no Mês', value: summary.finishedThisMonth || 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
+    { label: 'Produção Hoje', value: formatNumber(summary.todayProduction), icon: Factory, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { label: 'Estoque Crítico', value: summary.criticalStock || 0, icon: Package, color: 'text-orange-600', bg: 'bg-orange-50' },
+    { label: 'Custo Previsto (Mês)', value: formatCurrency(summary.plannedCostMonth), icon: DollarSign, color: 'text-cyan-600', bg: 'bg-cyan-50' },
+    { label: 'Custo Real (Mês)', value: formatCurrency(summary.realCostMonth), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: 'Refugos (Mês)', value: formatNumber(summary.totalScrap), icon: AlertCircle, color: 'text-rose-600', bg: 'bg-rose-50' },
   ];
 
   const pieData = (charts.statusDist || []).map(s => ({ name: statusLabels[s.status] || s.status, value: s.count }));
@@ -41,7 +47,10 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="page-title">Dashboard de Produção</h1>
+          <div className="flex items-center gap-3">
+            <Factory className="h-6 w-6 text-primary-600" />
+            <h1 className="page-title">Dashboard de Produção</h1>
+          </div>
           <p className="page-subtitle">Indicadores operacionais, custos, estoque e alertas em tempo real.</p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
@@ -54,8 +63,8 @@ export default function Dashboard() {
         {stats.map((s) => (
           <div key={s.label} className="stat-card">
             <div className="mb-2 flex items-center justify-between">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${s.bg}`}>
-                <s.icon className={`h-[18px] w-[18px] ${s.color}`} />
+              <div className={`flex h-14 w-14 items-center justify-center rounded-xl ${s.bg}`}>
+                <s.icon className={`h-7 w-7 ${s.color}`} />
               </div>
             </div>
             <p className="stat-value break-words">{s.value}</p>
@@ -66,22 +75,22 @@ export default function Dashboard() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="card">
-          <h3 className="mb-4 font-semibold text-gray-900">Produção dos últimos 7 dias</h3>
+          <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900"><BarChart3 className="h-5 w-5 text-primary-600" />Produção dos últimos 7 dias</h3>
           {(charts.dailyProd || []).length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={charts.dailyProd}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="day" tick={{ fontSize: 12 }} tickFormatter={v => v?.slice(5)} />
+                <XAxis dataKey="day" tick={{ fontSize: 12 }} tickFormatter={formatChartDay} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip formatter={(v) => [formatNumber(v), 'Produzido']} />
-                <Bar dataKey="total" fill="#1e40af" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total" fill="#1d4ed8" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : <div className="flex h-[250px] items-center justify-center text-sm text-gray-400">Sem dados de produção recente</div>}
         </div>
 
         <div className="card">
-          <h3 className="mb-4 font-semibold text-gray-900">Status das Ordens de Produção</h3>
+          <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900"><BarChart3 className="h-5 w-5 text-primary-600" />Status das Ordens de Produção</h3>
           {pieData.length > 0 ? (
             <div className="flex items-center">
               <ResponsiveContainer width="60%" height={250}>
@@ -106,7 +115,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <h3 className="mb-4 font-semibold text-gray-900">Produtos mais fabricados</h3>
+          <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900"><Package className="h-5 w-5 text-primary-600" />Produtos mais fabricados</h3>
           {(charts.topProducts || []).length > 0 ? (
             <div className="space-y-3">
               {charts.topProducts.map((p, i) => (
