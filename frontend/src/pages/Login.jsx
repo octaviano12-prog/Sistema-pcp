@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { Factory, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowRight, Eye, EyeOff, Factory, ShieldCheck } from 'lucide-react';
+
+const demoAccounts = [
+  { label: 'Administrador', email: 'carlos@metalurgica.com', password: 'demo123' },
+  { label: 'PCP', email: 'ana@metalurgica.com', password: 'demo123' },
+  { label: 'Produção', email: 'joao@metalurgica.com', password: 'demo123' },
+  { label: 'Super Admin', email: 'superadmin@pcppro.com', password: 'admin123' },
+];
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,12 +19,18 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const fillDemo = (account) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const user = await login(email, password);
+      await login(email, password);
       navigate('/app');
     } catch (err) {
       setError(err.message || 'Erro ao fazer login');
@@ -27,20 +40,28 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+    <div className="min-h-screen bg-gray-950 lg:grid lg:grid-cols-[minmax(420px,0.85fr)_1.15fr]">
+      <div className="flex min-h-screen items-center justify-center bg-white px-6 py-10">
         <div className="w-full max-w-md">
-          <Link to="/" className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center"><Factory className="w-5 h-5 text-white" /></div>
-            <span className="font-bold text-xl text-gray-900">PCP Pro Industrial</span>
+          <Link to="/" className="mb-9 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600">
+              <Factory className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <span className="block text-lg font-bold leading-tight text-gray-950">PCP Pro Industrial</span>
+              <span className="block text-xs font-medium text-gray-500">Sistema de gestão de produção</span>
+            </div>
           </Link>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">Acesse sua conta</h2>
-          <p className="text-gray-500 text-sm mb-8">Entre com suas credenciais para acessar o sistema.</p>
+
+          <div className="mb-7">
+            <h1 className="text-2xl font-bold text-gray-950">Acesse sua conta</h1>
+            <p className="mt-2 text-sm leading-6 text-gray-500">Entre para acompanhar pedidos, estoque, produção, custos e indicadores.</p>
+          </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center gap-2 text-sm">
-              <AlertCircle className="w-4 h-4" />{error}
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {error}
             </div>
           )}
 
@@ -53,41 +74,48 @@ export default function Login() {
               <label className="label">Senha</label>
               <div className="relative">
                 <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input pr-10" placeholder="Sua senha" required />
-                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" onClick={() => setShowPassword(!showPassword)} aria-label="Mostrar senha">
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
-            <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-2.5">
-              {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Entrar'}
+            <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3">
+              {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <>Entrar no sistema <ArrowRight className="h-4 w-4" /></>}
             </button>
           </form>
 
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-xs font-medium text-gray-600 mb-2">Contas de demonstração:</p>
-            <div className="space-y-1 text-xs text-gray-500">
-              <p><span className="font-medium">Admin:</span> carlos@metalurgica.com / demo123</p>
-              <p><span className="font-medium">PCP:</span> ana@metalurgica.com / demo123</p>
-              <p><span className="font-medium">Produção:</span> joao@metalurgica.com / demo123</p>
-              <p><span className="font-medium">Super Admin:</span> superadmin@pcppro.com / admin123</p>
+          <div className="mt-7 rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Contas para demonstração</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {demoAccounts.map((account) => (
+                <button key={account.email} type="button" onClick={() => fillDemo(account)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-xs transition hover:border-primary-300 hover:bg-primary-50">
+                  <span className="block font-semibold text-gray-800">{account.label}</span>
+                  <span className="block truncate text-gray-500">{account.email}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right side - hero */}
-      <div className="hidden lg:flex flex-1 bg-gradient-to-br from-primary-800 to-gray-900 items-center justify-center p-12">
-        <div className="max-w-md text-center">
-          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Factory className="w-8 h-8 text-white" />
+      <div className="hidden min-h-screen items-center justify-center bg-gray-950 p-12 text-white lg:flex">
+        <div className="max-w-xl">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-blue-100">
+            <ShieldCheck className="h-4 w-4 text-emerald-300" />
+            Ambiente seguro para gestão industrial
           </div>
-          <h3 className="text-2xl font-bold text-white mb-3">PCP Pro Industrial</h3>
-          <p className="text-primary-200">Controle sua produção do pedido à entrega. Sistema completo para gestão industrial.</p>
-          <div className="mt-8 grid grid-cols-2 gap-4 text-left">
-            {[['Pedidos', 'Controle total'], ['Produção', 'Em tempo real'], ['Estoque', 'Automatizado'], ['Custos', 'Precisos']].map(([t, d], i) => (
-              <div key={i} className="bg-white/5 rounded-lg p-3 border border-white/10">
-                <p className="text-white font-medium text-sm">{t}</p>
-                <p className="text-primary-300 text-xs">{d}</p>
+          <h2 className="text-4xl font-bold leading-tight">Do pedido à entrega, tudo conectado no PCP.</h2>
+          <p className="mt-5 text-lg leading-8 text-gray-300">Use a demonstração para apresentar módulos, indicadores, custos e alertas de uma operação industrial real.</p>
+          <div className="mt-8 grid grid-cols-2 gap-4">
+            {[
+              ['Pedidos', 'Controle total'],
+              ['Produção', 'Em tempo real'],
+              ['Estoque', 'Alertas automáticos'],
+              ['Custos', 'Previsto x real'],
+            ].map(([title, desc]) => (
+              <div key={title} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="font-semibold text-white">{title}</p>
+                <p className="mt-1 text-sm text-gray-400">{desc}</p>
               </div>
             ))}
           </div>
