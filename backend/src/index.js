@@ -86,6 +86,84 @@ app.delete('/api/companies/:id', authenticateToken, requireRole('super_admin'), 
   res.json({ success: true });
 });
 
+app.get('/api/company-settings', authenticateToken, async (req, res) => {
+  const companyId = req.user.company_id;
+  if (!companyId) return res.status(400).json({ error: 'Empresa não vinculada ao usuário' });
+
+  const company = await getDb().prepare('SELECT * FROM companies WHERE id = ?').get(companyId);
+  let fiscal = await getDb().prepare('SELECT * FROM company_fiscal_settings WHERE company_id = ?').get(companyId);
+  if (!fiscal) {
+    await getDb().prepare(`
+      INSERT INTO company_fiscal_settings (company_id, last_backup_at, notes)
+      VALUES (?, CURRENT_TIMESTAMP, 'Configuração demonstrativa pronta para apresentação.')
+    `).run(companyId);
+    fiscal = await getDb().prepare('SELECT * FROM company_fiscal_settings WHERE company_id = ?').get(companyId);
+  }
+
+  res.json({ company, fiscal });
+});
+
+app.put('/api/company-settings', authenticateToken, requireRole('super_admin', 'admin'), async (req, res) => {
+  const companyId = req.user.company_id;
+  const { company = {}, fiscal = {} } = req.body;
+  if (!companyId) return res.status(400).json({ error: 'Empresa não vinculada ao usuário' });
+
+  await getDb().prepare(`
+    UPDATE companies
+    SET name=?, trade_name=?, cnpj=?, state_registration=?, email=?, phone=?, whatsapp=?, address=?, city=?, state=?, zip_code=?, updated_at=CURRENT_TIMESTAMP
+    WHERE id=?
+  `).run(
+    company.name,
+    company.trade_name,
+    company.cnpj,
+    company.state_registration,
+    company.email,
+    company.phone,
+    company.whatsapp,
+    company.address,
+    company.city,
+    company.state,
+    company.zip_code,
+    companyId
+  );
+
+  const existing = await getDb().prepare('SELECT id FROM company_fiscal_settings WHERE company_id = ?').get(companyId);
+  if (existing) {
+    await getDb().prepare(`
+      UPDATE company_fiscal_settings
+      SET tax_regime=?, fiscal_environment=?, certificate_status=?, certificate_expiration=?, nfe_provider=?, nfe_enabled=?, auto_backup=?, notes=?, updated_at=CURRENT_TIMESTAMP
+      WHERE company_id=?
+    `).run(
+      fiscal.tax_regime || 'simples_nacional',
+      fiscal.fiscal_environment || 'homologation',
+      fiscal.certificate_status || 'pending',
+      fiscal.certificate_expiration || null,
+      fiscal.nfe_provider || 'Demo Fiscal',
+      fiscal.nfe_enabled === false ? 0 : 1,
+      fiscal.auto_backup === false ? 0 : 1,
+      fiscal.notes || null,
+      companyId
+    );
+  } else {
+    await getDb().prepare(`
+      INSERT INTO company_fiscal_settings (company_id, tax_regime, fiscal_environment, certificate_status, certificate_expiration, nfe_provider, nfe_enabled, auto_backup, notes, last_backup_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(
+      companyId,
+      fiscal.tax_regime || 'simples_nacional',
+      fiscal.fiscal_environment || 'homologation',
+      fiscal.certificate_status || 'pending',
+      fiscal.certificate_expiration || null,
+      fiscal.nfe_provider || 'Demo Fiscal',
+      fiscal.nfe_enabled === false ? 0 : 1,
+      fiscal.auto_backup === false ? 0 : 1,
+      fiscal.notes || null
+    );
+  }
+
+  res.json({ success: true });
+});
+
 // ==================== USERS ====================
 app.get('/api/users', authenticateToken, async (req, res) => {
   const filter = companyFilter(req);
@@ -359,6 +437,76 @@ app.delete('/api/sales-orders/:id', authenticateToken, async (req, res) => {
   await getDb().prepare('DELETE FROM sales_order_items WHERE sales_order_id = ?').run(req.params.id);
   await getDb().prepare('DELETE FROM sales_orders WHERE id = ? AND company_id = ?').run(req.params.id, req.user.company_id);
   res.json({ success: true });
+});
+
+app.post('/api/sales-orders/:id/generate-production-orders', authenticateToken, async (req, res) => {
+  const company_id = req.user.company_id;
+  const order = await getDb().prepare('SELECT * FROM sales_orders WHERE id = ? AND company_id = ?').get(req.params.id, company_id);
+  if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+
+  const items = await getDb().prepare('SELECT * FROM sales_order_items WHERE sales_order_id = ? AND company_id = ?').all(order.id, company_id);
+  if (items.length === 0) return res.status(400).json({ error: 'Pedido sem itens para produção' });
+
+  const created = [];
+  const skipped = [];
+  for (const item of items) {
+    const existing = await getDb().prepare('SELECT id, order_number FROM production_orders WHERE sales_order_id = ? AND product_id = ? AND company_id = ? AND status != ?').get(order.id, item.product_id, company_id, 'cancelled');
+    if (existing) {
+      skipped.push(existing.order_number);
+      continue;
+    }
+
+    const bomCount = (await getDb().prepare('SELECT COUNT(*) as count FROM product_boms WHERE product_id = ? AND company_id = ?').get(item.product_id, company_id)).count;
+    if (bomCount === 0) {
+      const product = await getDb().prepare('SELECT name FROM products WHERE id = ?').get(item.product_id);
+      skipped.push(`${product?.name || item.product_id}: sem ficha técnica`);
+      continue;
+    }
+
+    const lastOP = await getDb().prepare('SELECT order_number FROM production_orders WHERE company_id = ? ORDER BY id DESC LIMIT 1').get(company_id);
+    const nextNum = lastOP ? parseInt(lastOP.order_number.replace('OP-', '')) + 1 : 1;
+    const order_number = `OP-${String(nextNum).padStart(4, '0')}`;
+
+    const result = await getDb().prepare(`
+      INSERT INTO production_orders (company_id, order_number, product_id, sales_order_id, customer_id, planned_quantity, planned_start_date, planned_end_date, priority, notes, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      company_id,
+      order_number,
+      item.product_id,
+      order.id,
+      order.customer_id,
+      item.quantity,
+      new Date().toISOString().split('T')[0],
+      order.delivery_date,
+      order.priority || 'normal',
+      `Gerada automaticamente a partir do pedido ${order.order_number}.`,
+      req.user.id
+    );
+    const opId = result.lastInsertRowid;
+
+    const boms = await getDb().prepare('SELECT * FROM product_boms WHERE product_id = ? AND company_id = ?').all(item.product_id, company_id);
+    for (const b of boms) {
+      const qty = b.quantity * item.quantity * (1 + b.loss_percentage / 100);
+      await getDb().prepare('INSERT INTO production_order_materials (company_id, production_order_id, product_id, planned_quantity, unit_cost, total_cost) VALUES (?, ?, ?, ?, ?, ?)').run(company_id, opId, b.component_id, qty, b.unit_cost, qty * b.unit_cost);
+    }
+
+    const routes = await getDb().prepare('SELECT * FROM production_routes WHERE product_id = ? AND company_id = ? ORDER BY sequence').all(item.product_id, company_id);
+    for (const r of routes) {
+      await getDb().prepare('INSERT INTO production_order_operations (company_id, production_order_id, sequence, operation_name, machine_id, planned_time_minutes) VALUES (?, ?, ?, ?, ?, ?)').run(company_id, opId, r.sequence, r.operation_name, r.machine_id, r.standard_time_minutes * item.quantity);
+    }
+
+    const matCost = (await getDb().prepare('SELECT COALESCE(SUM(total_cost), 0) as total FROM production_order_materials WHERE production_order_id = ?').get(opId)).total;
+    const opCost = routes.reduce((sum, r) => sum + (r.standard_time_minutes * item.quantity / 60 * r.hourly_cost), 0);
+    await getDb().prepare('UPDATE production_orders SET planned_cost = ? WHERE id = ?').run(Number(matCost || 0) + opCost, opId);
+    created.push({ id: opId, order_number });
+  }
+
+  if (created.length > 0) {
+    await getDb().prepare('UPDATE sales_orders SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND company_id=?').run('in_planning', order.id, company_id);
+  }
+
+  res.json({ created, skipped });
 });
 
 // ==================== FISCAL INVOICES (DEMO NF-e) ====================
@@ -689,8 +837,10 @@ app.get('/api/dashboard/summary', authenticateToken, async (req, res) => {
   const plannedCostMonth = (await getDb().prepare("SELECT COALESCE(SUM(planned_cost), 0) as total FROM production_orders WHERE company_id = ? AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')").get(cid)).total;
   const realCostMonth = (await getDb().prepare("SELECT COALESCE(SUM(real_cost), 0) as total FROM production_orders WHERE company_id = ? AND status = 'finished' AND strftime('%Y-%m', real_end_date) = strftime('%Y-%m', 'now')").get(cid)).total;
   const totalScrap = (await getDb().prepare("SELECT COALESCE(SUM(rejected_quantity), 0) as total FROM production_orders WHERE company_id = ? AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')").get(cid)).total;
+  const fiscalAuthorized = (await getDb().prepare("SELECT COUNT(*) as count FROM fiscal_invoices WHERE company_id = ? AND status = 'authorized'").get(cid)).count;
+  const fiscalPending = (await getDb().prepare("SELECT COUNT(*) as count FROM fiscal_invoices WHERE company_id = ? AND status IN ('draft', 'processing', 'rejected')").get(cid)).count;
 
-  res.json({ openOps, delayedOps, finishedThisMonth, todayProduction, criticalStock, plannedCostMonth, realCostMonth, totalScrap });
+  res.json({ openOps, delayedOps, finishedThisMonth, todayProduction, criticalStock, plannedCostMonth, realCostMonth, totalScrap, fiscalAuthorized, fiscalPending });
   });
 
 app.get('/api/dashboard/charts', authenticateToken, async (req, res) => {
@@ -729,6 +879,9 @@ app.get('/api/dashboard/alerts', authenticateToken, async (req, res) => {
   // Products without BOM
   const noBom = await getDb().prepare("SELECT p.name FROM products p WHERE p.company_id = ? AND p.type = 'finished' AND p.active = 1 AND NOT EXISTS (SELECT 1 FROM product_boms WHERE product_id = p.id)").all(cid);
   noBom.forEach(p => alerts.push({ type: 'warning', message: `${p.name}: sem ficha técnica cadastrada`, entity: 'product' }));
+
+  const rejectedInvoices = await getDb().prepare("SELECT invoice_number, error_message FROM fiscal_invoices WHERE company_id = ? AND status = 'rejected' ORDER BY created_at DESC LIMIT 3").all(cid);
+  rejectedInvoices.forEach(invoice => alerts.push({ type: 'warning', message: `NF-e ${invoice.invoice_number}: ${invoice.error_message || 'pendência fiscal para correção'}`, entity: 'fiscal_invoice' }));
 
   res.json(alerts);
   });

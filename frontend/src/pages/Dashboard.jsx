@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { ClipboardList, AlertTriangle, CheckCircle, Factory, Package, DollarSign, TrendingUp, AlertCircle, Clock, BarChart3 } from 'lucide-react';
+import { ClipboardList, AlertTriangle, CheckCircle, Factory, Package, DollarSign, TrendingUp, AlertCircle, Clock, BarChart3, FileText } from 'lucide-react';
 
 const COLORS = ['#1e40af', '#22c55e', '#f97316', '#ef4444', '#8b5cf6', '#6b7280', '#06b6d4'];
 const statusLabels = { planned: 'Planejada', released: 'Liberada', in_production: 'Em produção', paused: 'Pausada', finished: 'Finalizada', cancelled: 'Cancelada', delayed: 'Atrasada' };
@@ -38,6 +38,8 @@ export default function Dashboard() {
     { label: 'Estoque Crítico', value: summary.criticalStock || 0, icon: Package, color: 'text-orange-600', bg: 'bg-orange-50' },
     { label: 'Custo Previsto (Mês)', value: formatCurrency(summary.plannedCostMonth), icon: DollarSign, color: 'text-cyan-600', bg: 'bg-cyan-50' },
     { label: 'Custo Real (Mês)', value: formatCurrency(summary.realCostMonth), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: 'NF-e Autorizadas', value: summary.fiscalAuthorized || 0, icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Pendências Fiscais', value: summary.fiscalPending || 0, icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-50' },
     { label: 'Refugos (Mês)', value: formatNumber(summary.totalScrap), icon: AlertCircle, color: 'text-rose-600', bg: 'bg-rose-50' },
   ];
 

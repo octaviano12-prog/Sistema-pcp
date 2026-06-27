@@ -314,6 +314,22 @@ CREATE TABLE IF NOT EXISTS fiscal_invoices (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS company_fiscal_settings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  tax_regime VARCHAR(64) DEFAULT 'simples_nacional',
+  fiscal_environment VARCHAR(32) DEFAULT 'homologation',
+  certificate_status VARCHAR(64) DEFAULT 'pending',
+  certificate_expiration DATE,
+  nfe_provider VARCHAR(120) DEFAULT 'Demo Fiscal',
+  nfe_enabled BOOLEAN DEFAULT TRUE,
+  auto_backup BOOLEAN DEFAULT TRUE,
+  last_backup_at DATETIME,
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS production_orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
   company_id INT NOT NULL,

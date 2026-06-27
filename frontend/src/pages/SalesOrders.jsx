@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api.js';
-import { Plus, Search, Edit2, Trash2, X, Eye } from 'lucide-react';
+import { Plus, Trash2, X, Eye, Factory } from 'lucide-react';
 
 const statusLabels = { open: 'Aberto', in_planning: 'Em planejamento', in_production: 'Em produção', partially_produced: 'Parcialmente produzido', produced: 'Produzido', delivered: 'Entregue', cancelled: 'Cancelado' };
 const statusColors = { open: 'badge-blue', in_planning: 'badge-yellow', in_production: 'badge-green', partially_produced: 'badge-orange', produced: 'badge-green', delivered: 'badge-green', cancelled: 'badge-red' };
@@ -38,6 +38,18 @@ export default function SalesOrders() {
   };
 
   const handleDelete = async (id) => { if (confirm('Excluir este pedido?')) { await api.delete(`/sales-orders/${id}`); load(); } };
+  const handleGenerateOP = async (order) => {
+    if (!confirm(`Gerar ordens de produção para o pedido ${order.order_number}?`)) return;
+    try {
+      const result = await api.post(`/sales-orders/${order.id}/generate-production-orders`, {});
+      const created = result.created?.map(op => op.order_number).join(', ') || 'nenhuma';
+      const skipped = result.skipped?.length ? `\nPendências: ${result.skipped.join(', ')}` : '';
+      alert(`OPs geradas: ${created}${skipped}`);
+      load();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -62,6 +74,7 @@ export default function SalesOrders() {
                 <td><span className={`badge ${statusColors[o.status]}`}>{statusLabels[o.status]}</span></td>
                 <td className="text-right">
                   <button onClick={() => setShowDetail(o)} className="text-gray-400 hover:text-primary-600 p-1"><Eye className="w-4 h-4" /></button>
+                  <button onClick={() => handleGenerateOP(o)} className="text-gray-400 hover:text-green-600 p-1 ml-1" title="Gerar OP"><Factory className="w-4 h-4" /></button>
                   <button onClick={() => handleDelete(o.id)} className="text-gray-400 hover:text-red-600 p-1 ml-1"><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>
