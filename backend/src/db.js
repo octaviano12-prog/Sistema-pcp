@@ -60,11 +60,11 @@ async function connectWithRetry(config) {
   throw lastError;
 }
 
-function normalizeSql(sql) {
+export function normalizeSql(sql) {
   return sql
     .replace(/INSERT\s+OR\s+IGNORE/gi, 'INSERT IGNORE')
     .replace(/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/gi, 'INT AUTO_INCREMENT PRIMARY KEY')
-    .replace(/REAL/gi, 'DECIMAL(15,4)')
+    .replace(/\bREAL\b/gi, 'DECIMAL(15,4)')
     .replace(/DATETIME\s+DEFAULT\s+CURRENT_TIMESTAMP/gi, 'DATETIME DEFAULT CURRENT_TIMESTAMP')
     .replace(/DATE\s+DEFAULT\s+CURRENT_DATE/gi, 'DATE DEFAULT (CURRENT_DATE)')
     .replace(/date\('now',\s*'-7 days'\)/gi, 'DATE_SUB(CURDATE(), INTERVAL 7 DAY)')
