@@ -3,13 +3,61 @@ import mysql from 'mysql2/promise';
 let pool = null;
 let lastInsertId = 0;
 
-const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+function env(...names) {
+  for (const name of names) {
+    if (process.env[name]) return process.env[name];
+  }
+  return undefined;
+}
 
 function requireDatabaseConfig() {
-  const missing = requiredEnv.filter((key) => !process.env[key]);
+  const required = {
+    DB_HOST: env('DB_HOST', 'MYSQL_HOST', 'MYSQLHOST'),
+    DB_USER: env('DB_USER', 'MYSQL_USER', 'MYSQLUSER'),
+    DB_PASSWORD: env('DB_PASSWORD', 'MYSQL_PASSWORD', 'MYSQLPASSWORD'),
+    DB_NAME: env('DB_NAME', 'MYSQL_DATABASE', 'MYSQLDATABASE'),
+  };
+  const missing = Object.entries(required)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
   if (missing.length > 0) {
     throw new Error(`Missing MySQL environment variables: ${missing.join(', ')}`);
   }
+  return required;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectWithRetry(config) {
+  const attempts = Number(process.env.DB_CONNECT_RETRIES || 5);
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const dbPool = mysql.createPool({
+        host: config.DB_HOST,
+        port: Number(env('DB_PORT', 'MYSQL_PORT', 'MYSQLPORT') || 3306),
+        user: config.DB_USER,
+        password: config.DB_PASSWORD,
+        database: config.DB_NAME,
+        waitForConnections: true,
+        connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+        queueLimit: 0,
+        charset: 'utf8mb4',
+      });
+
+      await dbPool.query('SELECT 1');
+      return dbPool;
+    } catch (error) {
+      lastError = error;
+      console.error(`MySQL connection attempt ${attempt}/${attempts} failed: ${error.message}`);
+      if (attempt < attempts) await wait(1500 * attempt);
+    }
+  }
+
+  throw lastError;
 }
 
 function normalizeSql(sql) {
@@ -326,18 +374,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 `;
 
 export async function initDatabase() {
-  requireDatabaseConfig();
-  pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
-    queueLimit: 0,
-    charset: 'utf8mb4',
-  });
+  const config = requireDatabaseConfig();
+  pool = await connectWithRetry(config);
 
   const db = new MySqlDatabase();
   await db.exec(schemaSql);
