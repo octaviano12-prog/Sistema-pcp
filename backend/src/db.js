@@ -1,394 +1,355 @@
-import initSqlJs from 'sql.js';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import fs from 'fs';
+import mysql from 'mysql2/promise';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(__dirname, '..', 'data');
-const dbPath = join(dataDir, 'pcp_pro.db');
+let pool = null;
+let lastInsertId = 0;
 
-let db = null;
+const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
 
-// Wrapper to provide better-sqlite3-like API
-class DatabaseWrapper {
-  constructor(sqlDb) {
-    this.db = sqlDb;
-  }
-
-  prepare(sql) {
-    return {
-      run: (...params) => {
-        this.db.run(sql, params.length === 1 && Array.isArray(params[0]) ? params[0] : params);
-        const lastId = this.db.exec("SELECT last_insert_rowid() as id")[0]?.values[0][0] || 0;
-        const changes = this.db.getRowsModified();
-        return { lastInsertRowid: lastId, changes };
-      },
-      get: (...params) => {
-        const stmt = this.db.prepare(sql);
-        stmt.bind(params.length === 1 && Array.isArray(params[0]) ? params[0] : params);
-        if (stmt.step()) {
-          const columns = stmt.getColumnNames();
-          const values = stmt.get();
-          stmt.free();
-          const result = {};
-          columns.forEach((col, i) => result[col] = values[i]);
-          return result;
-        }
-        stmt.free();
-        return undefined;
-      },
-      all: (...params) => {
-        const results = [];
-        const stmt = this.db.prepare(sql);
-        stmt.bind(params.length === 1 && Array.isArray(params[0]) ? params[0] : params);
-        const columns = stmt.getColumnNames();
-        while (stmt.step()) {
-          const values = stmt.get();
-          const row = {};
-          columns.forEach((col, i) => row[col] = values[i]);
-          results.push(row);
-        }
-        stmt.free();
-        return results;
-      }
-    };
-  }
-
-  exec(sql) {
-    this.db.run(sql);
-  }
-
-  pragma(pragma) {
-    try {
-      this.db.run(`PRAGMA ${pragma}`);
-    } catch (e) {
-      // Ignore pragma errors
-    }
+function requireDatabaseConfig() {
+  const missing = requiredEnv.filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    throw new Error(`Missing MySQL environment variables: ${missing.join(', ')}`);
   }
 }
 
-export async function initDatabase() {
-  const SQL = await initSqlJs();
-  fs.mkdirSync(dataDir, { recursive: true });
-  
-  // Try to load existing database
-  if (fs.existsSync(dbPath)) {
-    const buffer = fs.readFileSync(dbPath);
-    db = new DatabaseWrapper(new SQL.Database(buffer));
-  } else {
-    db = new DatabaseWrapper(new SQL.Database());
+function normalizeSql(sql) {
+  return sql
+    .replace(/INSERT\s+OR\s+IGNORE/gi, 'INSERT IGNORE')
+    .replace(/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/gi, 'INT AUTO_INCREMENT PRIMARY KEY')
+    .replace(/REAL/gi, 'DECIMAL(15,4)')
+    .replace(/DATETIME\s+DEFAULT\s+CURRENT_TIMESTAMP/gi, 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+    .replace(/DATE\s+DEFAULT\s+CURRENT_DATE/gi, 'DATE DEFAULT (CURRENT_DATE)')
+    .replace(/date\('now',\s*'-7 days'\)/gi, 'DATE_SUB(CURDATE(), INTERVAL 7 DAY)')
+    .replace(/date\('now'\)/gi, 'CURDATE()')
+    .replace(/date\(([^)]+)\)/gi, 'DATE($1)')
+    .replace(/strftime\('%Y-%m',\s*'now'\)/gi, "DATE_FORMAT(CURDATE(), '%Y-%m')")
+    .replace(/strftime\('%Y-%m',\s*([^)]+)\)/gi, "DATE_FORMAT($1, '%Y-%m')");
+}
+
+class MySqlDatabase {
+  prepare(sql) {
+    const statement = normalizeSql(sql);
+    return {
+      run: async (...params) => {
+        const [result] = await pool.execute(statement, params);
+        lastInsertId = result.insertId || lastInsertId;
+        return {
+          lastInsertRowid: result.insertId || 0,
+          insertId: result.insertId || 0,
+          changes: result.affectedRows || 0,
+        };
+      },
+      get: async (...params) => {
+        if (/SELECT\s+last_insert_rowid\(\)\s+as\s+id/i.test(statement)) {
+          return { id: lastInsertId };
+        }
+        const [rows] = await pool.execute(statement, params);
+        return rows[0];
+      },
+      all: async (...params) => {
+        const [rows] = await pool.execute(statement, params);
+        return rows;
+      },
+    };
   }
 
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+  async exec(sql) {
+    const statements = normalizeSql(sql)
+      .split(/;\s*(?:\r?\n|$)/)
+      .map((statement) => statement.trim())
+      .filter(Boolean);
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS companies (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      trade_name TEXT,
-      cnpj TEXT,
-      state_registration TEXT,
-      email TEXT,
-      phone TEXT,
-      whatsapp TEXT,
-      address TEXT,
-      city TEXT,
-      state TEXT,
-      zip_code TEXT,
-      logo_url TEXT,
-      plan TEXT DEFAULT 'starter',
-      status TEXT DEFAULT 'active',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+    for (const statement of statements) {
+      await pool.query(statement);
+    }
+  }
 
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      role TEXT DEFAULT 'viewer',
-      status TEXT DEFAULT 'active',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id)
-    );
+  async pragma() {
+    // SQLite compatibility no-op.
+  }
+}
 
-    CREATE TABLE IF NOT EXISTS customers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      document TEXT,
-      email TEXT,
-      phone TEXT,
-      whatsapp TEXT,
-      address TEXT,
-      city TEXT,
-      state TEXT,
-      notes TEXT,
-      active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id)
-    );
+const schemaSql = `
+CREATE TABLE IF NOT EXISTS companies (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  trade_name VARCHAR(255),
+  cnpj VARCHAR(32),
+  state_registration VARCHAR(64),
+  email VARCHAR(255),
+  phone VARCHAR(64),
+  whatsapp VARCHAR(64),
+  address VARCHAR(255),
+  city VARCHAR(120),
+  state VARCHAR(32),
+  zip_code VARCHAR(32),
+  logo_url TEXT,
+  plan VARCHAR(64) DEFAULT 'starter',
+  status VARCHAR(64) DEFAULT 'active',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS products (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      code TEXT,
-      name TEXT NOT NULL,
-      description TEXT,
-      type TEXT DEFAULT 'finished',
-      unit TEXT DEFAULT 'UN',
-      cost_price REAL DEFAULT 0,
-      sale_price REAL DEFAULT 0,
-      min_stock REAL DEFAULT 0,
-      max_stock REAL DEFAULT 0,
-      lead_time_days INTEGER DEFAULT 0,
-      weight REAL DEFAULT 0,
-      dimensions TEXT,
-      image_url TEXT,
-      active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id)
-    );
+CREATE TABLE IF NOT EXISTS users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role VARCHAR(64) DEFAULT 'viewer',
+  status VARCHAR(64) DEFAULT 'active',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS product_boms (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      product_id INTEGER NOT NULL,
-      component_id INTEGER NOT NULL,
-      quantity REAL NOT NULL DEFAULT 1,
-      unit TEXT DEFAULT 'UN',
-      loss_percentage REAL DEFAULT 0,
-      unit_cost REAL DEFAULT 0,
-      total_cost REAL DEFAULT 0,
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id),
-      FOREIGN KEY (product_id) REFERENCES products(id),
-      FOREIGN KEY (component_id) REFERENCES products(id)
-    );
+CREATE TABLE IF NOT EXISTS customers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  document VARCHAR(64),
+  email VARCHAR(255),
+  phone VARCHAR(64),
+  whatsapp VARCHAR(64),
+  address VARCHAR(255),
+  city VARCHAR(120),
+  state VARCHAR(32),
+  notes TEXT,
+  active TINYINT DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS production_routes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      product_id INTEGER NOT NULL,
-      sequence INTEGER NOT NULL,
-      operation_name TEXT NOT NULL,
-      machine_id INTEGER,
-      standard_time_minutes REAL DEFAULT 0,
-      setup_time_minutes REAL DEFAULT 0,
-      hourly_cost REAL DEFAULT 0,
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id),
-      FOREIGN KEY (product_id) REFERENCES products(id),
-      FOREIGN KEY (machine_id) REFERENCES machines(id)
-    );
+CREATE TABLE IF NOT EXISTS products (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  code VARCHAR(64),
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  type VARCHAR(64) DEFAULT 'finished',
+  unit VARCHAR(32) DEFAULT 'UN',
+  cost_price DECIMAL(15,4) DEFAULT 0,
+  sale_price DECIMAL(15,4) DEFAULT 0,
+  min_stock DECIMAL(15,4) DEFAULT 0,
+  max_stock DECIMAL(15,4) DEFAULT 0,
+  lead_time_days INT DEFAULT 0,
+  weight DECIMAL(15,4) DEFAULT 0,
+  dimensions VARCHAR(255),
+  image_url TEXT,
+  active TINYINT DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS machines (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      code TEXT,
-      type TEXT,
-      sector TEXT,
-      capacity_per_hour REAL DEFAULT 0,
-      hourly_cost REAL DEFAULT 0,
-      status TEXT DEFAULT 'available',
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id)
-    );
+CREATE TABLE IF NOT EXISTS product_boms (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  product_id INT NOT NULL,
+  component_id INT NOT NULL,
+  quantity DECIMAL(15,4) NOT NULL DEFAULT 1,
+  unit VARCHAR(32) DEFAULT 'UN',
+  loss_percentage DECIMAL(15,4) DEFAULT 0,
+  unit_cost DECIMAL(15,4) DEFAULT 0,
+  total_cost DECIMAL(15,4) DEFAULT 0,
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS stock_movements (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      product_id INTEGER NOT NULL,
-      type TEXT NOT NULL,
-      quantity REAL NOT NULL,
-      unit_cost REAL DEFAULT 0,
-      total_cost REAL DEFAULT 0,
-      reason TEXT,
-      reference_type TEXT,
-      reference_id INTEGER,
-      created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id),
-      FOREIGN KEY (product_id) REFERENCES products(id),
-      FOREIGN KEY (created_by) REFERENCES users(id)
-    );
+CREATE TABLE IF NOT EXISTS production_routes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  product_id INT NOT NULL,
+  sequence INT NOT NULL,
+  operation_name VARCHAR(255) NOT NULL,
+  machine_id INT,
+  standard_time_minutes DECIMAL(15,4) DEFAULT 0,
+  setup_time_minutes DECIMAL(15,4) DEFAULT 0,
+  hourly_cost DECIMAL(15,4) DEFAULT 0,
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS sales_orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      customer_id INTEGER NOT NULL,
-      order_number TEXT NOT NULL,
-      order_date DATE DEFAULT CURRENT_DATE,
-      delivery_date DATE,
-      priority TEXT DEFAULT 'normal',
-      status TEXT DEFAULT 'open',
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id),
-      FOREIGN KEY (customer_id) REFERENCES customers(id)
-    );
+CREATE TABLE IF NOT EXISTS machines (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  code VARCHAR(64),
+  type VARCHAR(120),
+  sector VARCHAR(120),
+  capacity_per_hour DECIMAL(15,4) DEFAULT 0,
+  hourly_cost DECIMAL(15,4) DEFAULT 0,
+  status VARCHAR(64) DEFAULT 'available',
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS sales_order_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      sales_order_id INTEGER NOT NULL,
-      product_id INTEGER NOT NULL,
-      quantity REAL NOT NULL,
-      unit_price REAL DEFAULT 0,
-      total_price REAL DEFAULT 0,
-      status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id),
-      FOREIGN KEY (sales_order_id) REFERENCES sales_orders(id),
-      FOREIGN KEY (product_id) REFERENCES products(id)
-    );
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  product_id INT NOT NULL,
+  type VARCHAR(120) NOT NULL,
+  quantity DECIMAL(15,4) NOT NULL,
+  unit_cost DECIMAL(15,4) DEFAULT 0,
+  total_cost DECIMAL(15,4) DEFAULT 0,
+  reason TEXT,
+  reference_type VARCHAR(120),
+  reference_id INT,
+  created_by INT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS production_orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      order_number TEXT NOT NULL,
-      product_id INTEGER NOT NULL,
-      sales_order_id INTEGER,
-      customer_id INTEGER,
-      planned_quantity REAL NOT NULL,
-      produced_quantity REAL DEFAULT 0,
-      rejected_quantity REAL DEFAULT 0,
-      planned_start_date DATE,
-      planned_end_date DATE,
-      real_start_date DATE,
-      real_end_date DATE,
-      responsible_id INTEGER,
-      status TEXT DEFAULT 'planned',
-      priority TEXT DEFAULT 'normal',
-      notes TEXT,
-      planned_cost REAL DEFAULT 0,
-      real_cost REAL DEFAULT 0,
-      created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id),
-      FOREIGN KEY (product_id) REFERENCES products(id),
-      FOREIGN KEY (sales_order_id) REFERENCES sales_orders(id),
-      FOREIGN KEY (customer_id) REFERENCES customers(id),
-      FOREIGN KEY (responsible_id) REFERENCES users(id),
-      FOREIGN KEY (created_by) REFERENCES users(id)
-    );
+CREATE TABLE IF NOT EXISTS sales_orders (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  customer_id INT,
+  order_number VARCHAR(120) NOT NULL,
+  order_date DATE DEFAULT (CURRENT_DATE),
+  delivery_date DATE,
+  priority VARCHAR(64) DEFAULT 'normal',
+  status VARCHAR(64) DEFAULT 'open',
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS production_order_materials (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      production_order_id INTEGER NOT NULL,
-      product_id INTEGER NOT NULL,
-      planned_quantity REAL NOT NULL,
-      reserved_quantity REAL DEFAULT 0,
-      consumed_quantity REAL DEFAULT 0,
-      unit_cost REAL DEFAULT 0,
-      total_cost REAL DEFAULT 0,
-      status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id),
-      FOREIGN KEY (production_order_id) REFERENCES production_orders(id),
-      FOREIGN KEY (product_id) REFERENCES products(id)
-    );
+CREATE TABLE IF NOT EXISTS sales_order_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  sales_order_id INT NOT NULL,
+  product_id INT NOT NULL,
+  quantity DECIMAL(15,4) NOT NULL,
+  unit_price DECIMAL(15,4) DEFAULT 0,
+  total_price DECIMAL(15,4) DEFAULT 0,
+  status VARCHAR(64) DEFAULT 'pending',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS production_order_operations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      production_order_id INTEGER NOT NULL,
-      sequence INTEGER NOT NULL,
-      operation_name TEXT NOT NULL,
-      machine_id INTEGER,
-      planned_time_minutes REAL DEFAULT 0,
-      real_time_minutes REAL DEFAULT 0,
-      status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id),
-      FOREIGN KEY (production_order_id) REFERENCES production_orders(id),
-      FOREIGN KEY (machine_id) REFERENCES machines(id)
-    );
+CREATE TABLE IF NOT EXISTS production_orders (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  order_number VARCHAR(120) NOT NULL,
+  product_id INT NOT NULL,
+  sales_order_id INT,
+  customer_id INT,
+  planned_quantity DECIMAL(15,4) NOT NULL,
+  produced_quantity DECIMAL(15,4) DEFAULT 0,
+  rejected_quantity DECIMAL(15,4) DEFAULT 0,
+  planned_start_date DATE,
+  planned_end_date DATE,
+  real_start_date DATE,
+  real_end_date DATE,
+  responsible_id INT,
+  status VARCHAR(64) DEFAULT 'planned',
+  priority VARCHAR(64) DEFAULT 'normal',
+  notes TEXT,
+  planned_cost DECIMAL(15,4) DEFAULT 0,
+  real_cost DECIMAL(15,4) DEFAULT 0,
+  created_by INT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS production_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      production_order_id INTEGER NOT NULL,
-      operation_id INTEGER,
-      user_id INTEGER,
-      machine_id INTEGER,
-      start_time DATETIME,
-      end_time DATETIME,
-      total_time_minutes REAL DEFAULT 0,
-      produced_quantity REAL DEFAULT 0,
-      rejected_quantity REAL DEFAULT 0,
-      stop_reason TEXT,
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id),
-      FOREIGN KEY (production_order_id) REFERENCES production_orders(id),
-      FOREIGN KEY (operation_id) REFERENCES production_order_operations(id),
-      FOREIGN KEY (user_id) REFERENCES users(id),
-      FOREIGN KEY (machine_id) REFERENCES machines(id)
-    );
+CREATE TABLE IF NOT EXISTS production_order_materials (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  production_order_id INT NOT NULL,
+  product_id INT NOT NULL,
+  planned_quantity DECIMAL(15,4) NOT NULL,
+  reserved_quantity DECIMAL(15,4) DEFAULT 0,
+  consumed_quantity DECIMAL(15,4) DEFAULT 0,
+  unit_cost DECIMAL(15,4) DEFAULT 0,
+  total_cost DECIMAL(15,4) DEFAULT 0,
+  status VARCHAR(64) DEFAULT 'pending',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS subscriptions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER NOT NULL,
-      plan TEXT NOT NULL,
-      status TEXT DEFAULT 'active',
-      monthly_value REAL DEFAULT 0,
-      start_date DATE DEFAULT CURRENT_DATE,
-      next_billing_date DATE,
-      payment_provider TEXT,
-      payment_status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id)
-    );
+CREATE TABLE IF NOT EXISTS production_order_operations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  production_order_id INT NOT NULL,
+  sequence INT NOT NULL,
+  operation_name VARCHAR(255) NOT NULL,
+  machine_id INT,
+  planned_time_minutes DECIMAL(15,4) DEFAULT 0,
+  real_time_minutes DECIMAL(15,4) DEFAULT 0,
+  status VARCHAR(64) DEFAULT 'pending',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER,
-      user_id INTEGER,
-      action TEXT NOT NULL,
-      entity TEXT,
-      entity_id INTEGER,
-      old_value TEXT,
-      new_value TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (company_id) REFERENCES companies(id),
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-  `);
+CREATE TABLE IF NOT EXISTS production_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  production_order_id INT NOT NULL,
+  operation_id INT,
+  user_id INT,
+  machine_id INT,
+  start_time DATETIME,
+  end_time DATETIME,
+  total_time_minutes DECIMAL(15,4) DEFAULT 0,
+  produced_quantity DECIMAL(15,4) DEFAULT 0,
+  rejected_quantity DECIMAL(15,4) DEFAULT 0,
+  stop_reason TEXT,
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT NOT NULL,
+  plan VARCHAR(64) NOT NULL,
+  status VARCHAR(64) DEFAULT 'active',
+  monthly_value DECIMAL(15,4) DEFAULT 0,
+  start_date DATE DEFAULT (CURRENT_DATE),
+  next_billing_date DATE,
+  payment_provider VARCHAR(120),
+  payment_status VARCHAR(64) DEFAULT 'pending',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_id INT,
+  user_id INT,
+  action VARCHAR(120) NOT NULL,
+  entity VARCHAR(120),
+  entity_id INT,
+  old_value JSON,
+  new_value JSON,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
+export async function initDatabase() {
+  requireDatabaseConfig();
+  pool = mysql.createPool({
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    waitForConnections: true,
+    connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+    queueLimit: 0,
+    charset: 'utf8mb4',
+  });
+
+  const db = new MySqlDatabase();
+  await db.exec(schemaSql);
   return db;
 }
 
 export function getDb() {
-  return db;
+  return new MySqlDatabase();
 }
 
 export function saveDatabase() {
-  if (db && db.db) {
-    const data = db.db.export();
-    const buffer = Buffer.from(data);
-    fs.writeFileSync(dbPath, buffer);
-  }
+  // MySQL persists each write immediately.
 }
 
 export default { initDatabase, getDb, saveDatabase };

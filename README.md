@@ -10,7 +10,7 @@ Sistema de gestao PCP para controle de producao, produtos, clientes, estoque, or
 - Express
 - JWT
 - Tailwind CSS
-- sql.js para banco local em arquivo
+- MySQL
 - SQL de referencia em `database/`
 
 ## Estrutura
@@ -113,11 +113,25 @@ JWT_SECRET=coloque_uma_chave_grande_e_secreta
 
 ## Banco de dados
 
-O app atual usa `sql.js`, que grava o banco em `backend/data/pcp_pro.db`. Esse arquivo nao deve ser enviado ao GitHub.
+O app usa MySQL. Crie um banco MySQL na Hostinger e configure as variaveis de ambiente do backend.
+
+Variaveis obrigatorias:
+
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=usuario_mysql
+DB_PASSWORD=senha_mysql
+DB_NAME=sistema_pcp
+JWT_SECRET=coloque_uma_chave_grande_e_secreta
+NODE_ENV=production
+```
+
+Na primeira inicializacao, o backend cria as tabelas automaticamente e popula os dados demo se o banco estiver vazio.
 
 A pasta `database/` contem SQL de referencia:
 
-- `database/schema.sql`: estrutura das tabelas
+- `database/schema.sql`: estrutura das tabelas MySQL
 - `database/seed.sql`: dados iniciais basicos
 - `database/migrations/`: futuras migracoes
 
@@ -162,6 +176,6 @@ npm --workspace backend start
 
 - Nao subir `.env`.
 - Trocar `JWT_SECRET` em producao.
-- Nao versionar `backend/data/*.db`.
+- Nao versionar `.env`.
 - Nao versionar `frontend/dist`.
 - As senhas acima sao apenas para ambiente de demonstracao.
