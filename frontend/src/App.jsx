@@ -28,11 +28,10 @@ function ProtectedRoute({ children }) {
 }
 
 function AppRoutes() {
-  const { user } = useAuth();
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/login" element={user ? <Navigate to="/app" /> : <Login />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/app" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="products" element={<Products />} />
@@ -51,6 +50,7 @@ function AppRoutes() {
         <Route path="settings" element={<Settings />} />
         <Route path="subscriptions" element={<Subscriptions />} />
       </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

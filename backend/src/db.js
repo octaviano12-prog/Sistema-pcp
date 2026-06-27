@@ -30,6 +30,21 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizeRow(row) {
+  if (!row || typeof row !== 'object') return row;
+  for (const [key, value] of Object.entries(row)) {
+    if (typeof value !== 'string') continue;
+    const isNumericValue = /^-?\d+(?:\.\d+)?$/.test(value);
+    const looksNumericColumn = /(quantity|price|cost|stock|total|weight|minutes|hour|value|percentage|capacity|scrap|produced|planned|reserved|consumed|rejected|variation|difference|count)$/i.test(key);
+    if (isNumericValue && looksNumericColumn) row[key] = Number(value);
+  }
+  return row;
+}
+
+function normalizeRows(rows) {
+  return rows.map((row) => normalizeRow(row));
+}
+
 async function connectWithRetry(config) {
   const attempts = Number(process.env.DB_CONNECT_RETRIES || 5);
   let lastError;
@@ -92,11 +107,11 @@ class MySqlDatabase {
           return { id: lastInsertId };
         }
         const [rows] = await pool.execute(statement, params);
-        return rows[0];
+        return normalizeRow(rows[0]);
       },
       all: async (...params) => {
         const [rows] = await pool.execute(statement, params);
-        return rows;
+        return normalizeRows(rows);
       },
     };
   }
