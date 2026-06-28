@@ -243,6 +243,7 @@ app.get('/api/users', authenticateToken, async (req, res) => {
 app.post('/api/users', authenticateToken, requireRole('super_admin', 'admin'), async (req, res) => {
   const { name, email, password, role } = req.body;
   const company_id = req.user.role === 'super_admin' ? req.body.company_id : req.user.company_id;
+  if (!company_id) return res.status(400).json({ error: 'Empresa obrigatoria para cadastrar usuario' });
   const password_hash = bcrypt.hashSync(password || 'demo123', 10);
   try {
     const result = await getDb().prepare('INSERT INTO users (company_id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)').run(company_id, name, email, password_hash, role || 'viewer');
@@ -252,13 +253,30 @@ app.post('/api/users', authenticateToken, requireRole('super_admin', 'admin'), a
   }
 });
 
-app.put('/api/users/:id', authenticateToken, async (req, res) => {
+async function ensureUserWriteAccess(req, res) {
+  const target = await getDb().prepare('SELECT id, company_id FROM users WHERE id = ?').get(req.params.id);
+  if (!target) {
+    res.status(404).json({ error: 'Usuario nao encontrado' });
+    return null;
+  }
+  if (req.user.role !== 'super_admin' && target.company_id !== req.user.company_id) {
+    res.status(403).json({ error: 'Sem permissao para esta acao' });
+    return null;
+  }
+  return target;
+}
+
+app.put('/api/users/:id', authenticateToken, requireRole('super_admin', 'admin'), async (req, res) => {
+  const target = await ensureUserWriteAccess(req, res);
+  if (!target) return;
   const { name, email, role, status } = req.body;
   await getDb().prepare('UPDATE users SET name=?, email=?, role=?, status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(name, email, role, status, req.params.id);
   res.json({ success: true });
 });
 
 app.delete('/api/users/:id', authenticateToken, requireRole('super_admin', 'admin'), async (req, res) => {
+  const target = await ensureUserWriteAccess(req, res);
+  if (!target) return;
   await getDb().prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });

@@ -24,10 +24,11 @@ import DataImport from './pages/DataImport.jsx';
 import Implementation from './pages/Implementation.jsx';
 import AdminSalesPanel from './pages/AdminSalesPanel.jsx';
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div></div>;
   if (!user) return <Navigate to="/login" />;
+  if (roles && !roles.includes(user.role)) return <Navigate to="/app" replace />;
   return children;
 }
 
@@ -52,11 +53,11 @@ function AppRoutes() {
         <Route path="reports" element={<Reports />} />
         <Route path="fiscal-invoices" element={<FiscalInvoices />} />
         <Route path="implementation" element={<Implementation />} />
-        <Route path="data-import" element={<DataImport />} />
-        <Route path="admin-sales" element={<AdminSalesPanel />} />
-        <Route path="users" element={<Users />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="subscriptions" element={<Subscriptions />} />
+        <Route path="data-import" element={<ProtectedRoute roles={['super_admin', 'admin', 'pcp', 'stock']}><DataImport /></ProtectedRoute>} />
+        <Route path="admin-sales" element={<ProtectedRoute roles={['super_admin', 'admin']}><AdminSalesPanel /></ProtectedRoute>} />
+        <Route path="users" element={<ProtectedRoute roles={['super_admin', 'admin']}><Users /></ProtectedRoute>} />
+        <Route path="settings" element={<ProtectedRoute roles={['super_admin', 'admin']}><Settings /></ProtectedRoute>} />
+        <Route path="subscriptions" element={<ProtectedRoute roles={['super_admin', 'admin']}><Subscriptions /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

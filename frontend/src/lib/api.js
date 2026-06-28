@@ -3,17 +3,20 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api';
 async function request(path, options = {}) {
   const token = localStorage.getItem('pcp_token');
   const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  if (res.status === 401 || res.status === 403) {
+  if (res.status === 401) {
     localStorage.removeItem('pcp_token');
     localStorage.removeItem('pcp_user');
     window.location.href = '/login';
-    throw new Error('Não autorizado');
+    throw new Error('Nao autorizado');
   }
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Erro na requisição');
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || (res.status === 403 ? 'Acesso negado para seu perfil' : 'Erro na requisicao'));
+  }
   return data;
 }
 

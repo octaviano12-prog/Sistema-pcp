@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api.js';
+import { useAuth } from '../contexts/AuthContext.jsx';
 import { Database, FileSpreadsheet, Upload, AlertCircle, CheckCircle } from 'lucide-react';
 
 const templates = {
@@ -20,10 +21,24 @@ const labels = {
 };
 
 export default function DataImport() {
+  const { user } = useAuth();
+  const allowedTypes = useMemo(() => {
+    if (['super_admin', 'admin', 'pcp'].includes(user?.role)) return Object.keys(labels);
+    if (user?.role === 'stock') return ['stock'];
+    return [];
+  }, [user?.role]);
   const [type, setType] = useState('products');
   const [csv, setCsv] = useState(templates.products);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (allowedTypes.length > 0 && !allowedTypes.includes(type)) {
+      setType(allowedTypes[0]);
+      setCsv(templates[allowedTypes[0]]);
+      setResult(null);
+    }
+  }, [allowedTypes, type]);
 
   const changeType = (nextType) => {
     setType(nextType);
@@ -58,7 +73,7 @@ export default function DataImport() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {Object.entries(labels).map(([key, label]) => (
+        {Object.entries(labels).filter(([key]) => allowedTypes.includes(key)).map(([key, label]) => (
           <button
             key={key}
             onClick={() => changeType(key)}
