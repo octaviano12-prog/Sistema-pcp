@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api.js';
-import { Plus, Trash2, X, Eye, Factory } from 'lucide-react';
+import { Plus, Trash2, X, Eye, Factory, Printer } from 'lucide-react';
 
 const statusLabels = { open: 'Aberto', in_planning: 'Em planejamento', in_production: 'Em produção', partially_produced: 'Parcialmente produzido', produced: 'Produzido', delivered: 'Entregue', cancelled: 'Cancelado' };
 const statusColors = { open: 'badge-blue', in_planning: 'badge-yellow', in_production: 'badge-green', partially_produced: 'badge-orange', produced: 'badge-green', delivered: 'badge-green', cancelled: 'badge-red' };
@@ -122,7 +122,13 @@ export default function SalesOrders() {
       {showDetail && (
         <div className="modal-overlay" onClick={() => setShowDetail(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b"><h3 className="text-lg font-semibold">Pedido {showDetail.order_number}</h3><button onClick={() => setShowDetail(null)}><X className="w-5 h-5 text-gray-400" /></button></div>
+            <div className="flex items-center justify-between p-5 border-b">
+              <h3 className="text-lg font-semibold">Pedido {showDetail.order_number}</h3>
+              <div className="flex items-center gap-2">
+                <button onClick={() => window.print()} className="btn-secondary text-xs"><Printer className="w-4 h-4" /> Imprimir</button>
+                <button onClick={() => setShowDetail(null)}><X className="w-5 h-5 text-gray-400" /></button>
+              </div>
+            </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                 <div><span className="text-gray-500">Cliente:</span><p className="font-medium">{showDetail.customer_name}</p></div>

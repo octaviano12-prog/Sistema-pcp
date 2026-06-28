@@ -40,6 +40,46 @@ function generateFiscalProtocol() {
   return `135${Date.now()}`.slice(0, 15);
 }
 
+function parseCsv(text) {
+  const rows = [];
+  let current = '';
+  let row = [];
+  let quoted = false;
+  const source = String(text || '').replace(/^\uFEFF/, '');
+  for (let i = 0; i < source.length; i += 1) {
+    const char = source[i];
+    const next = source[i + 1];
+    if (char === '"' && quoted && next === '"') {
+      current += '"';
+      i += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === ',' && !quoted) {
+      row.push(current.trim());
+      current = '';
+    } else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && next === '\n') i += 1;
+      row.push(current.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  row.push(current.trim());
+  if (row.some(Boolean)) rows.push(row);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h => h.trim().toLowerCase());
+  return rows.slice(1).map(values => Object.fromEntries(headers.map((h, index) => [h, values[index] ?? ''])));
+}
+
+function toNumber(value, fallback = 0) {
+  if (value === null || value === undefined || value === '') return fallback;
+  const parsed = Number(String(value).replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 // ==================== AUTH ====================
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
@@ -84,6 +124,35 @@ app.put('/api/companies/:id', authenticateToken, requireRole('super_admin'), asy
 app.delete('/api/companies/:id', authenticateToken, requireRole('super_admin'), async (req, res) => {
   await getDb().prepare('DELETE FROM companies WHERE id = ?').run(req.params.id);
   res.json({ success: true });
+});
+
+app.get('/api/admin/sales-panel', authenticateToken, requireRole('super_admin', 'admin'), async (req, res) => {
+  const companyFilterSql = req.user.role === 'super_admin' ? '' : 'WHERE c.id = ?';
+  const params = req.user.role === 'super_admin' ? [] : [req.user.company_id];
+  const companies = await getDb().prepare(`
+    SELECT c.*,
+      (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id) as users_count,
+      (SELECT COUNT(*) FROM products p WHERE p.company_id = c.id AND p.active = 1) as products_count,
+      (SELECT COUNT(*) FROM sales_orders so WHERE so.company_id = c.id) as orders_count,
+      (SELECT COUNT(*) FROM production_orders po WHERE po.company_id = c.id) as production_orders_count,
+      (SELECT COUNT(*) FROM fiscal_invoices fi WHERE fi.company_id = c.id AND fi.status = 'authorized') as authorized_invoices,
+      (SELECT MAX(created_at) FROM audit_logs al WHERE al.company_id = c.id) as last_activity
+    FROM companies c
+    ${companyFilterSql}
+    ORDER BY c.created_at DESC
+  `).all(...params);
+
+  const totals = {
+    companies: companies.length,
+    activeCompanies: companies.filter(c => c.status === 'active').length,
+    monthlyRecurring: companies.reduce((sum, company) => {
+      const values = { starter: 147, profissional: 297, professional: 297, industrial: 597 };
+      return sum + (values[company.plan] || 0);
+    }, 0),
+    authorizedInvoices: companies.reduce((sum, company) => sum + Number(company.authorized_invoices || 0), 0),
+  };
+
+  res.json({ totals, companies });
 });
 
 app.get('/api/company-settings', authenticateToken, async (req, res) => {
@@ -349,7 +418,7 @@ async function getStockForProduct(company_id, product_id) {
   const movements = await getDb().prepare('SELECT * FROM stock_movements WHERE company_id = ? AND product_id = ? ORDER BY created_at').all(company_id, product_id);
   let stock = 0;
   for (const m of movements) {
-    if (['entrada_manual', 'compra', 'producao'].includes(m.type)) stock += m.quantity;
+    if (['entrada_manual', 'entrada_importacao', 'compra', 'producao'].includes(m.type)) stock += m.quantity;
     else if (['saida_manual', 'consumo_op', 'ajuste_negativo'].includes(m.type)) stock -= m.quantity;
     else if (m.type === 'ajuste_positivo') stock += m.quantity;
     else if (m.type === 'estorno') stock += m.quantity;
@@ -389,6 +458,118 @@ app.get('/api/stock/movements', authenticateToken, async (req, res) => {
   const filter = companyFilter(req);
   const movements = await getDb().prepare('SELECT sm.*, p.name as product_name, p.code as product_code, u.name as user_name FROM stock_movements sm JOIN products p ON sm.product_id = p.id LEFT JOIN users u ON sm.created_by = u.id WHERE sm.company_id = ? ORDER BY sm.created_at DESC LIMIT 200').all(filter.company_id);
   res.json(movements);
+});
+
+// ==================== DATA IMPORT ====================
+app.post('/api/import/products', authenticateToken, requireRole('super_admin', 'admin', 'pcp'), async (req, res) => {
+  const company_id = req.user.company_id;
+  const rows = parseCsv(req.body?.csv);
+  let imported = 0;
+  const errors = [];
+
+  for (const [index, row] of rows.entries()) {
+    const code = row.codigo || row.code || row.sku;
+    const name = row.nome || row.name || row.produto;
+    if (!code || !name) {
+      errors.push(`Linha ${index + 2}: código e nome são obrigatórios`);
+      continue;
+    }
+    try {
+      const existing = await getDb().prepare('SELECT id FROM products WHERE company_id = ? AND code = ?').get(company_id, code);
+      const data = [
+        name,
+        row.descricao || row.description || '',
+        row.tipo || row.type || 'finished',
+        row.unidade || row.unit || 'UN',
+        toNumber(row.custo || row.cost_price),
+        toNumber(row.preco || row.sale_price),
+        toNumber(row.estoque_minimo || row.min_stock),
+        toNumber(row.estoque_maximo || row.max_stock),
+      ];
+      if (existing) {
+        await getDb().prepare('UPDATE products SET name=?, description=?, type=?, unit=?, cost_price=?, sale_price=?, min_stock=?, max_stock=?, active=1, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(...data, existing.id);
+      } else {
+        await getDb().prepare('INSERT INTO products (company_id, code, name, description, type, unit, cost_price, sale_price, min_stock, max_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(company_id, code, ...data);
+      }
+      imported += 1;
+    } catch (error) {
+      errors.push(`Linha ${index + 2}: ${error.message}`);
+    }
+  }
+  res.json({ imported, errors });
+});
+
+app.post('/api/import/customers', authenticateToken, requireRole('super_admin', 'admin', 'pcp'), async (req, res) => {
+  const company_id = req.user.company_id;
+  const rows = parseCsv(req.body?.csv);
+  let imported = 0;
+  const errors = [];
+
+  for (const [index, row] of rows.entries()) {
+    const name = row.nome || row.name || row.cliente;
+    const document = row.cnpj || row.cpf || row.document || row.documento || '';
+    if (!name) {
+      errors.push(`Linha ${index + 2}: nome é obrigatório`);
+      continue;
+    }
+    try {
+      const existing = document ? await getDb().prepare('SELECT id FROM customers WHERE company_id = ? AND document = ?').get(company_id, document) : null;
+      const data = [
+        name,
+        row.email || '',
+        row.telefone || row.phone || '',
+        row.whatsapp || '',
+        row.endereco || row.address || '',
+        row.cidade || row.city || '',
+        row.uf || row.state || '',
+        row.observacoes || row.notes || '',
+      ];
+      if (existing) {
+        await getDb().prepare('UPDATE customers SET name=?, email=?, phone=?, whatsapp=?, address=?, city=?, state=?, notes=?, active=1, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(...data, existing.id);
+      } else {
+        await getDb().prepare('INSERT INTO customers (company_id, name, document, email, phone, whatsapp, address, city, state, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(company_id, name, document, ...data.slice(1));
+      }
+      imported += 1;
+    } catch (error) {
+      errors.push(`Linha ${index + 2}: ${error.message}`);
+    }
+  }
+  res.json({ imported, errors });
+});
+
+app.post('/api/import/stock', authenticateToken, requireRole('super_admin', 'admin', 'stock', 'pcp'), async (req, res) => {
+  const company_id = req.user.company_id;
+  const rows = parseCsv(req.body?.csv);
+  let imported = 0;
+  const errors = [];
+
+  for (const [index, row] of rows.entries()) {
+    const code = row.codigo || row.code || row.sku;
+    const quantity = toNumber(row.quantidade || row.quantity || row.saldo);
+    if (!code || quantity <= 0) {
+      errors.push(`Linha ${index + 2}: código e quantidade positiva são obrigatórios`);
+      continue;
+    }
+    const product = await getDb().prepare('SELECT id, cost_price FROM products WHERE company_id = ? AND code = ?').get(company_id, code);
+    if (!product) {
+      errors.push(`Linha ${index + 2}: produto ${code} não encontrado`);
+      continue;
+    }
+    const unitCost = toNumber(row.custo || row.unit_cost, product.cost_price || 0);
+    await getDb().prepare('INSERT INTO stock_movements (company_id, product_id, type, quantity, unit_cost, total_cost, reason, reference_type, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+      company_id,
+      product.id,
+      'entrada_importacao',
+      quantity,
+      unitCost,
+      quantity * unitCost,
+      row.motivo || row.reason || 'Importação de estoque inicial',
+      'import',
+      req.user.id
+    );
+    imported += 1;
+  }
+  res.json({ imported, errors });
 });
 
 // ==================== SALES ORDERS ====================

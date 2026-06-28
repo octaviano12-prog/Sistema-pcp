@@ -8,8 +8,10 @@ import {
   ClipboardList,
   Cog,
   CreditCard,
+  Database,
   Factory,
   FileText,
+  ClipboardCheck,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -30,6 +32,8 @@ const navItems = [
   { path: '/app/stock', icon: Warehouse, label: 'Estoque' },
   { path: '/app/sales-orders', icon: ShoppingCart, label: 'Pedidos' },
   { path: '/app/fiscal-invoices', icon: FileText, label: 'Nota Fiscal' },
+  { path: '/app/implementation', icon: ClipboardCheck, label: 'Implantação' },
+  { path: '/app/data-import', icon: Database, label: 'Importação' },
   { path: '/app/planning', icon: Calendar, label: 'Planejamento PCP' },
   { path: '/app/production-orders', icon: ClipboardList, label: 'Ordens de Produção' },
   { path: '/app/production-log', icon: Factory, label: 'Apontamento' },
@@ -39,6 +43,7 @@ const navItems = [
   { path: '/app/reports', icon: BarChart3, label: 'Relatórios' },
   { path: '/app/users', icon: UserCog, label: 'Usuários' },
   { path: '/app/settings', icon: Cog, label: 'Configurações' },
+  { path: '/app/admin-sales', icon: BarChart3, label: 'Painel Comercial', roles: ['super_admin', 'admin'] },
   { path: '/app/subscriptions', icon: CreditCard, label: 'Assinatura' },
 ];
 
@@ -83,7 +88,7 @@ export default function DashboardLayout() {
         </div>
 
         <nav className="space-y-1 overflow-y-auto px-3 py-4" style={{ maxHeight: 'calc(100vh - 92px)' }}>
-          {navItems.map(item => (
+          {navItems.filter(item => !item.roles || item.roles.includes(user?.role)).map(item => (
             <NavLink
               key={item.path}
               to={item.path}

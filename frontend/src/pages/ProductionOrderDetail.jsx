@@ -43,6 +43,7 @@ export default function ProductionOrderDetail() {
           <p className="page-subtitle">{order.product_name} — {order.planned_quantity} unidades</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => window.print()} className="btn-secondary text-xs"><Printer className="w-3 h-3" /> Imprimir</button>
           {order.status === 'planned' && <button onClick={() => handleAction('release')} className="btn-primary text-xs"><Play className="w-3 h-3" /> Liberar</button>}
           {order.status === 'released' && <button onClick={() => handleAction('start')} className="btn-success text-xs"><Play className="w-3 h-3" /> Iniciar</button>}
           {order.status === 'in_production' && <button onClick={() => handleAction('pause')} className="btn-secondary text-xs"><Pause className="w-3 h-3" /> Pausar</button>}

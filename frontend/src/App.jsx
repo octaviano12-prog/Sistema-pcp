@@ -20,6 +20,9 @@ import Users from './pages/Users.jsx';
 import Settings from './pages/Settings.jsx';
 import Subscriptions from './pages/Subscriptions.jsx';
 import FiscalInvoices from './pages/FiscalInvoices.jsx';
+import DataImport from './pages/DataImport.jsx';
+import Implementation from './pages/Implementation.jsx';
+import AdminSalesPanel from './pages/AdminSalesPanel.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -48,6 +51,9 @@ function AppRoutes() {
         <Route path="routes" element={<RoutesModule />} />
         <Route path="reports" element={<Reports />} />
         <Route path="fiscal-invoices" element={<FiscalInvoices />} />
+        <Route path="implementation" element={<Implementation />} />
+        <Route path="data-import" element={<DataImport />} />
+        <Route path="admin-sales" element={<AdminSalesPanel />} />
         <Route path="users" element={<Users />} />
         <Route path="settings" element={<Settings />} />
         <Route path="subscriptions" element={<Subscriptions />} />
