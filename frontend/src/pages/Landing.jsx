@@ -1,283 +1,559 @@
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  AlertTriangle,
-  BarChart3,
-  Calendar,
-  CheckCircle,
+  ArrowRight,
+  ArrowUp,
+  Award,
+  Building2,
+  CheckCircle2,
   ChevronRight,
-  ClipboardList,
-  Factory,
-  FileSpreadsheet,
-  Lock,
+  FileText,
+  Gauge,
+  HardHat,
+  Instagram,
+  Linkedin,
+  Mail,
+  MapPin,
   Menu,
-  Package,
+  MessageCircle,
+  Phone,
   PlayCircle,
+  Send,
+  Settings,
   ShieldCheck,
-  ShoppingCart,
-  Target,
-  Warehouse,
+  UserCircle,
+  Wrench,
   X,
-  Zap,
+  Youtube,
 } from 'lucide-react';
+import heroImage from '../assets/imec/hero-welder.jpg';
+import footerImage from '../assets/imec/footer-industrial.jpg';
+import portfolioVasos from '../assets/imec/portfolio-vasos.jpg';
+import portfolioTubulacoes from '../assets/imec/portfolio-tubulacoes.jpg';
+import portfolioEstruturas from '../assets/imec/portfolio-estruturas.jpg';
+import portfolioTanques from '../assets/imec/portfolio-tanques.jpg';
+import portfolioCaldeiraria from '../assets/imec/portfolio-caldeiraria.jpg';
+import portfolioCargas from '../assets/imec/portfolio-cargas.jpg';
 
-const modules = [
-  { icon: ShoppingCart, title: 'Pedidos de venda', desc: 'Prazos, clientes, prioridades e status em uma visão única.' },
-  { icon: Package, title: 'Produtos e ficha técnica', desc: 'Composição, matéria-prima, unidades, custos e roteiros.' },
-  { icon: Warehouse, title: 'Estoque industrial', desc: 'Entradas, saídas, reservas, inventário e alertas de mínimo.' },
-  { icon: Calendar, title: 'Planejamento PCP', desc: 'Organize o que produzir, quando produzir e qual recurso usar.' },
-  { icon: ClipboardList, title: 'Ordens de produção', desc: 'OPs digitais com materiais, operações, tempos e apontamentos.' },
-  { icon: BarChart3, title: 'Indicadores e relatórios', desc: 'Dashboards de produção, custos, estoque, atrasos e eficiência.' },
+const phoneDisplay = '(47) 99942-3000';
+const phoneNumber = '5547999423000';
+const email = 'contato@imecmetalurgica.com.br';
+
+const navItems = [
+  ['#home', 'Home'],
+  ['#quem-somos', 'Quem Somos'],
+  ['#servicos', 'Serviços'],
+  ['#galeria', 'Galeria'],
+  ['#videos', 'Vídeos'],
+  ['#portfolio', 'Portfólio'],
+  ['#contato', 'Contato'],
 ];
 
-const plans = [
-  { name: 'Starter', price: '147', desc: 'Para começar com cadastros, estoque e OPs essenciais.', features: ['Até 3 usuários', 'Produtos e estoque', 'Ordens de produção', 'Dashboard básico'] },
-  { name: 'Profissional', price: '297', desc: 'Mais vendido para PCP completo com apontamento e custos.', features: ['Até 10 usuários', 'Ficha técnica completa', 'Apontamento de produção', 'Relatórios e custos'], highlight: true },
-  { name: 'Industrial', price: '597', desc: 'Para fábricas com equipes, setores e rotina mais complexa.', features: ['Usuários ilimitados', 'Planejamento avançado', 'Relatórios gerenciais', 'Suporte prioritário'] },
+const services = [
+  {
+    icon: Building2,
+    title: 'Caldeiraria',
+    desc: 'Fabricação e montagem de equipamentos, bases, tanques e tubulações industriais.',
+  },
+  {
+    icon: Wrench,
+    title: 'Soldagem Industrial',
+    desc: 'Processos qualificados, soldadores experientes e acabamento técnico para cada aplicação.',
+  },
+  {
+    icon: Settings,
+    title: 'Manutenção Industrial',
+    desc: 'Atendimento preventivo, preditivo e corretivo com foco em disponibilidade operacional.',
+  },
+  {
+    icon: Building2,
+    title: 'Estruturas Metálicas',
+    desc: 'Projetos, fabricação e montagem de estruturas sob medida para ambientes industriais.',
+  },
+  {
+    icon: Gauge,
+    title: 'NR-13',
+    desc: 'Adequação, inspeção, laudos, documentação técnica e suporte para conformidade.',
+  },
+  {
+    icon: HardHat,
+    title: 'Rigging',
+    desc: 'Içamento e movimentação de cargas com planejamento, segurança e responsabilidade.',
+  },
 ];
 
-export default function Landing() {
-  const [menuOpen, setMenuOpen] = useState(false);
+const portfolio = [
+  { title: 'Vasos de Pressão', category: 'Caldeiraria pesada', image: portfolioVasos },
+  { title: 'Tubulações Industriais', category: 'Montagem e soldagem', image: portfolioTubulacoes },
+  { title: 'Estruturas Metálicas', category: 'Projetos sob medida', image: portfolioEstruturas },
+  { title: 'Manutenção Industrial', category: 'Plantas e utilidades', image: portfolioTanques },
+  { title: 'Caldeiraria Pesada', category: 'Equipamentos especiais', image: portfolioCaldeiraria },
+  { title: 'Movimentação de Cargas', category: 'Rigging técnico', image: portfolioCargas },
+];
+
+const qualityItems = [
+  {
+    icon: Award,
+    title: 'Qualidade',
+    desc: 'Padrões e processos de alta performance.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Segurança',
+    desc: 'Compromisso com a vida e o meio ambiente.',
+  },
+  {
+    icon: Settings,
+    title: 'Responsabilidade Técnica',
+    desc: 'ART e documentação em conformidade.',
+  },
+];
+
+const stats = [
+  ['24h', 'retorno técnico'],
+  ['NR-13', 'suporte documental'],
+  ['100%', 'foco em segurança'],
+];
+
+function whatsappUrl(message) {
+  return `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+}
+
+function Brand() {
+  return (
+    <a href="#home" className="flex items-center gap-3 text-white" aria-label="IMEC Metalúrgica">
+      <span className="relative grid h-12 w-12 place-items-center bg-[linear-gradient(135deg,#f7fbff,#89a6c6_48%,#10243a)] shadow-[0_0_24px_rgba(59,130,246,0.24)] [clip-path:polygon(50%_0,94%_25%,94%_75%,50%_100%,6%_75%,6%_25%)]">
+        <span className="absolute h-7 w-4 border-l-[6px] border-r-[6px] border-[#071522]" />
+        <span className="h-7 w-4 bg-blue-200/80 [clip-path:polygon(50%_0,100%_26%,100%_74%,50%_100%,0_74%,0_26%)]" />
+      </span>
+      <span>
+        <span className="block text-[32px] font-black leading-[0.82] tracking-normal">IMEC</span>
+        <span className="block text-[11px] font-black uppercase tracking-[0.22em] text-blue-100">
+          Metalúrgica
+        </span>
+      </span>
+    </a>
+  );
+}
+
+function Header() {
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
-      <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-[#06142d]/90 text-white backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 shadow-lg shadow-primary-900/40">
-              <Factory className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <span className="block text-sm font-bold leading-tight text-white">PCP Pro</span>
-              <span className="block text-[11px] font-medium uppercase tracking-wide text-blue-200">Industrial</span>
-            </div>
-          </Link>
+    <header className="sticky top-0 z-50 border-b border-slate-400/20 bg-[#020912]/95 text-white backdrop-blur-xl">
+      <div className="mx-auto grid min-h-[68px] max-w-[1680px] grid-cols-[1fr_auto] items-center gap-4 px-4 sm:px-6 xl:grid-cols-[280px_1fr_auto] xl:px-16 2xl:px-24">
+        <Brand />
 
-          <div className="hidden items-center gap-7 md:flex">
-            <a href="#recursos" className="text-sm font-medium text-blue-100 hover:text-white">Recursos</a>
-            <a href="#planos" className="text-sm font-medium text-blue-100 hover:text-white">Planos</a>
-            <a href="#contato" className="text-sm font-medium text-blue-100 hover:text-white">Contato</a>
-            <Link to="/login" className="btn-primary shadow-lg shadow-primary-950/30">Acessar sistema</Link>
-          </div>
+        <button
+          type="button"
+          className="grid h-10 w-10 place-items-center rounded border border-white/15 text-blue-100 xl:hidden"
+          onClick={() => setOpen((value) => !value)}
+          aria-label="Abrir menu"
+        >
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
 
-          <button className="rounded-lg p-2 text-blue-100 md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu">
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+        <nav
+          className={`${
+            open ? 'flex' : 'hidden'
+          } col-span-2 flex-col border-t border-white/10 py-3 xl:col-span-1 xl:flex xl:flex-row xl:items-center xl:justify-center xl:border-0 xl:py-0`}
+        >
+          {navItems.map(([href, label], index) => (
+            <a
+              key={href}
+              href={href}
+              className={`relative px-3 py-3 text-sm font-semibold text-blue-50/90 transition hover:text-white xl:grid xl:h-[68px] xl:place-items-center ${
+                index === 0
+                  ? 'after:absolute after:bottom-0 after:left-3 after:right-3 after:h-[3px] after:bg-blue-500 after:shadow-[0_0_18px_rgba(59,130,246,0.8)]'
+                  : ''
+              }`}
+              onClick={() => setOpen(false)}
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="hidden items-center gap-5 2xl:flex">
+          <a href={`tel:+${phoneNumber}`} className="inline-flex items-center gap-2 text-sm font-semibold text-blue-50">
+            <Phone className="h-4 w-4" />
+            {phoneDisplay}
+          </a>
+          <a
+            href={whatsappUrl('Olá! Gostaria de solicitar um orçamento com a IMEC Metalúrgica.')}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded bg-blue-600 px-6 text-sm font-black text-white shadow-[0_14px_28px_rgba(37,99,235,0.28)] transition hover:bg-blue-500"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Solicitar Orçamento
+          </a>
         </div>
+      </div>
+    </header>
+  );
+}
 
-        {menuOpen && (
-          <div className="space-y-3 border-t border-white/10 bg-[#06142d] px-4 py-4 md:hidden">
-            <a href="#recursos" className="block text-sm font-medium text-blue-100">Recursos</a>
-            <a href="#planos" className="block text-sm font-medium text-blue-100">Planos</a>
-            <a href="#contato" className="block text-sm font-medium text-blue-100">Contato</a>
-            <Link to="/login" className="btn-primary justify-center">Acessar sistema</Link>
-          </div>
-        )}
-      </nav>
+function SectionTitle({ eyebrow, title, link, href }) {
+  return (
+    <div>
+      <span className="text-xs font-black uppercase tracking-wide text-blue-500">{eyebrow}</span>
+      <h2 className="mt-2 max-w-[300px] text-2xl font-semibold leading-tight text-white">
+        {title}
+        <span className="mt-5 block h-[3px] w-12 bg-blue-500" />
+      </h2>
+      {link && (
+        <a
+          href={href}
+          className="mt-6 inline-flex items-center gap-2 border border-blue-500 px-4 py-3 text-sm font-bold text-blue-400 transition hover:bg-blue-500 hover:text-white"
+        >
+          {link}
+          <ArrowRight className="h-4 w-4" />
+        </a>
+      )}
+    </div>
+  );
+}
 
-      <section
-        className="relative overflow-hidden bg-[#06142d] pt-24 text-white"
-        style={{
-          backgroundImage:
-            'linear-gradient(90deg, rgba(3, 12, 31, 0.96) 0%, rgba(6, 20, 45, 0.9) 42%, rgba(7, 38, 88, 0.72) 100%), url(https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=1800&q=80)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(37,99,235,0.36),transparent_30%),radial-gradient(circle_at_18%_85%,rgba(249,115,22,0.22),transparent_28%)]" />
-        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 pb-14 sm:px-6 lg:grid-cols-[1fr_560px] lg:px-8 lg:pb-20">
-          <div className="flex flex-col justify-center">
-            <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-blue-100">
-              <Zap className="h-4 w-4 text-amber-300" />
-              Sistema online para controle de produção industrial
-            </div>
-            <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-normal sm:text-5xl lg:text-6xl">
-              PCP Pro <span className="text-blue-400">Industrial</span>
+function ServiceCard({ item }) {
+  const Icon = item.icon;
+  return (
+    <article className="min-h-[148px] rounded-md border border-slate-300/15 bg-[linear-gradient(145deg,rgba(24,44,64,.94),rgba(9,23,37,.94))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition hover:-translate-y-1 hover:border-blue-500/50 hover:shadow-[0_18px_40px_rgba(0,0,0,.28)]">
+      <Icon className="mb-3 h-11 w-11 text-blue-500" />
+      <h3 className="text-[17px] font-bold leading-tight text-white">{item.title}</h3>
+      <p className="mt-2 text-sm leading-5 text-slate-300">{item.desc}</p>
+    </article>
+  );
+}
+
+function ContactForm() {
+  const [form, setForm] = useState({
+    name: '',
+    company: '',
+    phone: '',
+    service: '',
+    message: '',
+  });
+
+  const message = useMemo(() => {
+    return [
+      'Olá! Gostaria de solicitar um orçamento com a IMEC Metalúrgica.',
+      form.name && `Nome: ${form.name}`,
+      form.company && `Empresa: ${form.company}`,
+      form.phone && `Telefone: ${form.phone}`,
+      form.service && `Serviço: ${form.service}`,
+      form.message && `Mensagem: ${form.message}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }, [form]);
+
+  return (
+    <form
+      className="grid gap-3 rounded-md border border-slate-300/20 bg-[#0b1828]/95 p-5 shadow-[0_24px_60px_rgba(0,0,0,.25)]"
+      onSubmit={(event) => {
+        event.preventDefault();
+        window.open(whatsappUrl(message), '_blank', 'noopener,noreferrer');
+      }}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input
+          className="min-h-[46px] rounded border border-slate-400/20 bg-[#06111d] px-4 text-sm text-white outline-none ring-blue-500 transition placeholder:text-slate-500 focus:ring-2"
+          placeholder="Nome"
+          value={form.name}
+          onChange={(event) => setForm({ ...form, name: event.target.value })}
+          required
+        />
+        <input
+          className="min-h-[46px] rounded border border-slate-400/20 bg-[#06111d] px-4 text-sm text-white outline-none ring-blue-500 transition placeholder:text-slate-500 focus:ring-2"
+          placeholder="Empresa"
+          value={form.company}
+          onChange={(event) => setForm({ ...form, company: event.target.value })}
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input
+          className="min-h-[46px] rounded border border-slate-400/20 bg-[#06111d] px-4 text-sm text-white outline-none ring-blue-500 transition placeholder:text-slate-500 focus:ring-2"
+          placeholder="Telefone / WhatsApp"
+          value={form.phone}
+          onChange={(event) => setForm({ ...form, phone: event.target.value })}
+          required
+        />
+        <select
+          className="min-h-[46px] rounded border border-slate-400/20 bg-[#06111d] px-4 text-sm text-white outline-none ring-blue-500 transition focus:ring-2"
+          value={form.service}
+          onChange={(event) => setForm({ ...form, service: event.target.value })}
+        >
+          <option value="">Serviço de interesse</option>
+          {services.map((service) => (
+            <option key={service.title} value={service.title}>
+              {service.title}
+            </option>
+          ))}
+        </select>
+      </div>
+      <textarea
+        className="min-h-[112px] resize-y rounded border border-slate-400/20 bg-[#06111d] px-4 py-3 text-sm text-white outline-none ring-blue-500 transition placeholder:text-slate-500 focus:ring-2"
+        placeholder="Descreva sua necessidade"
+        value={form.message}
+        onChange={(event) => setForm({ ...form, message: event.target.value })}
+        required
+      />
+      <button className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded bg-blue-600 px-6 text-sm font-black text-white transition hover:bg-blue-500">
+        Enviar pelo WhatsApp
+        <Send className="h-4 w-4" />
+      </button>
+    </form>
+  );
+}
+
+export default function Landing() {
+  return (
+    <div id="home" className="min-h-screen bg-[#050d15] text-white">
+      <Header />
+
+      <main>
+        <section
+          className="relative grid min-h-[360px] items-center gap-10 overflow-hidden border-b border-slate-300/20 bg-cover bg-center px-4 py-10 sm:px-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:px-16 xl:px-24"
+          style={{
+            backgroundImage: `linear-gradient(90deg, rgba(3,10,18,.98), rgba(3,10,18,.72) 44%, rgba(3,10,18,.26) 70%, rgba(3,10,18,.86)), url(${heroImage})`,
+          }}
+        >
+          <div className="max-w-4xl">
+            <h1 className="max-w-[850px] text-[38px] font-black leading-[1.02] tracking-normal sm:text-5xl lg:text-[54px] 2xl:text-[58px]">
+              Soluções Industriais com{' '}
+              <span className="text-blue-500">Engenharia, Tecnologia</span> e Confiança
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-gray-300">
-              Controle pedidos, estoque, fichas técnicas, ordens de produção, apontamentos e custos em uma plataforma pronta para pequenas e médias indústrias.
+            <span className="mt-6 block h-[3px] w-12 bg-blue-500" />
+            <p className="mt-5 max-w-2xl text-lg leading-7 text-slate-300">
+              Excelência em caldeiraria, soldagem, manutenção industrial, estruturas metálicas e responsabilidade técnica.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href="#contato" className="btn-accent justify-center px-6 py-3 text-base">
-                Solicitar demonstração
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+              <a
+                href={whatsappUrl('Olá! Gostaria de solicitar um orçamento com a IMEC Metalúrgica.')}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-[46px] items-center justify-center gap-3 rounded bg-blue-600 px-7 text-sm font-black text-white shadow-[0_14px_28px_rgba(37,99,235,0.28)] transition hover:bg-blue-500"
+              >
+                Solicitar Orçamento
                 <ChevronRight className="h-5 w-5" />
               </a>
-              <Link to="/login" className="btn-secondary justify-center border-white/20 bg-white/10 px-6 py-3 text-base text-white hover:bg-white/20">
-                <PlayCircle className="h-5 w-5" />
-                Ver sistema
-              </Link>
-            </div>
-
-            <div className="mt-8 grid gap-3 text-sm text-gray-300 sm:grid-cols-3">
-              <span className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-400" /> Demo pronta</span>
-              <span className="flex items-center gap-2"><Lock className="h-4 w-4 text-emerald-400" /> Acesso por perfil</span>
-              <span className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4 text-emerald-400" /> Menos planilhas</span>
+              <a
+                href="#servicos"
+                className="inline-flex min-h-[46px] items-center justify-center gap-3 rounded border border-white/55 bg-black/20 px-7 text-sm font-black text-white transition hover:bg-white/10"
+              >
+                Ver Serviços
+                <ChevronRight className="h-5 w-5" />
+              </a>
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/20 bg-white p-4 text-gray-900 shadow-2xl shadow-blue-950/30">
-            <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Dashboard</p>
-                <p className="text-sm font-bold text-gray-950">Metalúrgica Modelo</p>
-              </div>
-              <span className="rounded-lg bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Online</span>
+          <aside className="hidden self-stretch content-center lg:grid">
+            {qualityItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <article key={item.title} className="grid grid-cols-[44px_1fr] gap-x-3 border-t border-slate-300/20 py-5 last:border-b">
+                  <Icon className="row-span-2 h-10 w-10 text-blue-500" />
+                  <b className="text-sm text-white">{item.title}</b>
+                  <small className="text-[13px] leading-5 text-slate-300">{item.desc}</small>
+                </article>
+              );
+            })}
+          </aside>
+        </section>
+
+        <section id="servicos" className="grid gap-8 border-b border-slate-300/20 bg-[linear-gradient(180deg,#071624,#06111d)] px-4 py-5 sm:px-8 lg:grid-cols-[280px_1fr] lg:px-16 xl:px-24">
+          <SectionTitle eyebrow="Nossos Serviços" title="Soluções completas para a indústria" />
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            {services.map((item) => (
+              <ServiceCard key={item.title} item={item} />
+            ))}
+          </div>
+        </section>
+
+        <section id="portfolio" className="grid gap-8 border-b border-slate-300/20 bg-[#06111d] px-4 py-5 sm:px-8 lg:grid-cols-[280px_1fr] lg:px-16 xl:px-24">
+          <SectionTitle eyebrow="Portfólio" title="Projetos que geram resultados" link="Ver Portfólio Completo" href="#galeria" />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            {portfolio.map((item) => (
+              <article
+                key={item.title}
+                className="group flex min-h-[132px] overflow-hidden rounded-md border border-slate-300/20 bg-cover bg-center transition hover:-translate-y-1 hover:border-blue-500/60"
+                style={{
+                  backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.88)), url(${item.image})`,
+                }}
+              >
+                <span className="mt-auto block w-full bg-black/60 px-3 py-2 text-center">
+                  <strong className="block text-sm font-bold text-white">{item.title}</strong>
+                  <small className="text-xs text-slate-300">{item.category}</small>
+                </span>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section
+          id="videos"
+          className="grid gap-5 border-b border-slate-300/20 bg-cover bg-center px-4 py-4 sm:px-8 lg:grid-cols-3 lg:px-24"
+          style={{
+            backgroundImage: `linear-gradient(90deg,rgba(4,14,24,.94),rgba(8,31,52,.9)), url(${footerImage})`,
+          }}
+        >
+          <a href="#videos" className="grid min-h-[106px] grid-cols-[72px_1fr] items-center gap-5 rounded-md border border-slate-300/20 bg-[linear-gradient(145deg,rgba(24,45,67,.92),rgba(12,27,43,.88))] px-6 py-5 transition hover:border-blue-500/60">
+            <PlayCircle className="h-16 w-16 text-blue-500" />
+            <span>
+              <b className="block text-lg text-white">Vídeos</b>
+              <small className="block text-sm leading-5 text-slate-300">Projetos, processos e bastidores das operações.</small>
+              <span className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-blue-400">
+                Ver Vídeos <ArrowRight className="h-4 w-4" />
+              </span>
+            </span>
+          </a>
+
+          <a href="#contato" className="grid min-h-[106px] grid-cols-[72px_1fr] items-center gap-5 rounded-md border border-slate-300/20 bg-[linear-gradient(145deg,rgba(24,45,67,.92),rgba(12,27,43,.88))] px-6 py-5 transition hover:border-blue-500/60">
+            <FileText className="h-16 w-16 text-blue-500" />
+            <span>
+              <b className="block text-lg text-white">Documentos</b>
+              <small className="block text-sm leading-5 text-slate-300">Certificados, procedimentos, laudos e materiais técnicos.</small>
+              <span className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-blue-400">
+                Solicitar Acesso <ArrowRight className="h-4 w-4" />
+              </span>
+            </span>
+          </a>
+
+          <Link to="/login" className="grid min-h-[106px] grid-cols-[72px_1fr] items-center gap-5 rounded-md border border-slate-300/20 bg-[linear-gradient(145deg,rgba(24,45,67,.92),rgba(12,27,43,.88))] px-6 py-5 transition hover:border-blue-500/60">
+            <UserCircle className="h-16 w-16 text-blue-500" />
+            <span>
+              <b className="block text-lg text-white">Portal do Cliente</b>
+              <small className="block text-sm leading-5 text-slate-300">Demandas, ordens de serviço, documentos e relatórios.</small>
+              <span className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-blue-400">
+                Acessar Portal <ArrowRight className="h-4 w-4" />
+              </span>
+            </span>
+          </Link>
+        </section>
+
+        <section id="quem-somos" className="border-b border-slate-300/20 bg-[#071523] px-4 py-16 sm:px-8 lg:px-24">
+          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[360px_1fr]">
+            <SectionTitle eyebrow="Quem Somos" title="Metalúrgica com rotina técnica e foco em segurança" />
+            <div className="grid gap-5 md:grid-cols-3">
+              {qualityItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <article key={item.title} className="rounded-md border border-slate-300/20 bg-[#101f30] p-6">
+                    <Icon className="mb-4 h-8 w-8 text-blue-500" />
+                    <b className="block text-white">{item.title}</b>
+                    <span className="mt-2 block text-sm leading-6 text-slate-300">{item.desc}</span>
+                  </article>
+                );
+              })}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                ['OPs abertas', '24', 'bg-blue-50 text-blue-700'],
-                ['Em produção', '12', 'bg-emerald-50 text-emerald-700'],
-                ['Atrasadas', '3', 'bg-red-50 text-red-700'],
-                ['Eficiência', '87%', 'bg-amber-50 text-amber-700'],
-              ].map(([label, value, tone]) => (
-                <div key={label} className={`rounded-lg p-4 ${tone}`}>
-                  <p className="text-2xl font-bold">{value}</p>
-                  <p className="mt-1 text-xs font-medium text-gray-600">{label}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 rounded-lg border border-gray-100 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-900">Produção semanal</p>
-                <p className="text-xs font-medium text-emerald-700">+18%</p>
-              </div>
-              <div className="flex h-32 items-end gap-2">
-                {[48, 62, 55, 76, 68, 90, 72].map((height, index) => (
-                  <div key={index} className="flex-1 rounded-t bg-primary-600" style={{ height: `${height}%` }} />
+          </div>
+        </section>
+
+        <section id="galeria" className="border-b border-slate-300/20 bg-[#06111d] px-4 py-16 sm:px-8 lg:px-24">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-8 lg:grid-cols-[360px_1fr]">
+              <SectionTitle eyebrow="Galeria" title="Imagens industriais recriadas para apresentar a operação" />
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {portfolio.map((item) => (
+                  <figure key={item.title} className="overflow-hidden rounded-md border border-slate-300/20 bg-[#101f30]">
+                    <img src={item.image} alt={item.title} className="aspect-[4/3] w-full object-cover transition duration-500 hover:scale-105" />
+                    <figcaption className="px-4 py-3 text-sm font-bold text-white">{item.title}</figcaption>
+                  </figure>
                 ))}
               </div>
             </div>
-            <div className="mt-4 rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                <span>3 itens abaixo do estoque mínimo precisam de atenção hoje.</span>
-              </div>
-            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="recursos" className="px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-2xl">
-            <p className="text-sm font-bold uppercase tracking-wide text-primary-700">Recursos</p>
-            <h2 className="mt-2 text-3xl font-bold text-gray-950">Tudo que o PCP precisa para rodar a fábrica com mais controle</h2>
-            <p className="mt-3 text-gray-600">Módulos conectados para que pedido, estoque e produção conversem entre si sem retrabalho.</p>
-          </div>
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {modules.map((item) => (
-              <div key={item.title} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition hover:border-primary-200 hover:shadow-md">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-primary-50 text-primary-700">
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <h3 className="font-semibold text-gray-950">{item.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-gray-600">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-gray-50 px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[420px_1fr]">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-primary-700">Resultado</p>
-            <h2 className="mt-2 text-3xl font-bold text-gray-950">Menos improviso. Mais previsibilidade.</h2>
-            <p className="mt-4 text-gray-600">O sistema organiza o fluxo de produção para que o gestor enxergue gargalos antes que eles virem atraso.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {[
-              { icon: Target, title: 'Prazos sob controle', desc: 'Acompanhe pedidos e OPs por prioridade e data de entrega.' },
-              { icon: BarChart3, title: 'Decisão por indicador', desc: 'Veja produção, custos, refugos e estoque crítico em tempo real.' },
-              { icon: ShieldCheck, title: 'Acesso seguro', desc: 'Perfis para administrativo, PCP, produção, estoque e financeiro.' },
-              { icon: CheckCircle, title: 'Venda com demonstração', desc: 'Dados de exemplo prontos para apresentar o fluxo completo ao cliente.' },
-            ].map((item) => (
-              <div key={item.title} className="rounded-xl border border-gray-200 bg-white p-6">
-                <item.icon className="mb-4 h-6 w-6 text-primary-700" />
-                <h3 className="font-semibold text-gray-950">{item.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-gray-600">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="planos" className="px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-bold uppercase tracking-wide text-primary-700">Planos</p>
-            <h2 className="mt-2 text-3xl font-bold text-gray-950">Comece simples e evolua conforme a operação cresce</h2>
-          </div>
-          <div className="mx-auto mt-10 grid max-w-5xl gap-6 md:grid-cols-3">
-            {plans.map((plan) => (
-              <div key={plan.name} className={`rounded-xl border p-6 ${plan.highlight ? 'border-primary-600 bg-primary-600 text-white shadow-xl' : 'border-gray-200 bg-white'}`}>
-                {plan.highlight && <span className="mb-4 inline-flex rounded-lg bg-white/15 px-3 py-1 text-xs font-semibold">Mais escolhido</span>}
-                <h3 className={`text-xl font-bold ${plan.highlight ? 'text-white' : 'text-gray-950'}`}>{plan.name}</h3>
-                <p className={`mt-2 text-sm leading-6 ${plan.highlight ? 'text-primary-50' : 'text-gray-600'}`}>{plan.desc}</p>
-                <div className="my-6">
-                  <span className="text-4xl font-bold">R${plan.price}</span>
-                  <span className={plan.highlight ? 'text-primary-100' : 'text-gray-500'}>/mês</span>
-                </div>
-                <ul className="space-y-3">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-center gap-2 text-sm">
-                      <CheckCircle className={`h-4 w-4 ${plan.highlight ? 'text-emerald-200' : 'text-emerald-600'}`} />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <a href="#contato" className={`mt-6 block rounded-lg px-4 py-3 text-center text-sm font-semibold ${plan.highlight ? 'bg-white text-primary-700 hover:bg-gray-100' : 'bg-gray-950 text-white hover:bg-gray-800'}`}>
-                  Quero esse plano
-                </a>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="contato"
-        className="relative overflow-hidden bg-primary-800 px-4 py-20 text-white sm:px-6 lg:px-8"
-        style={{
-          backgroundImage:
-            'linear-gradient(90deg, rgba(7, 28, 77, 0.96), rgba(9, 48, 120, 0.84)), url(https://images.unsplash.com/photo-1565043589221-1a6fd9ae45c7?auto=format&fit=crop&w=1800&q=80)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="relative mx-auto max-w-5xl">
-          <div className="max-w-2xl">
-          <h2 className="text-3xl font-bold">Pronto para apresentar o PCP Pro para uma indústria?</h2>
-          <p className="mt-4 text-lg leading-8 text-primary-50">
-            Entre pelo sistema, use os dados de demonstração e mostre um fluxo completo: pedido, estoque, produção, apontamento e dashboard.
-          </p>
-          </div>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link to="/login" className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-7 py-3 font-semibold text-primary-700 hover:bg-gray-100">
-              Acessar demonstração
-              <ChevronRight className="h-5 w-5" />
-            </Link>
-            <a href="https://wa.me/5511999990000?text=Olá! Gostaria de solicitar uma demonstração do PCP Pro Industrial." target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/25 bg-white/10 px-7 py-3 font-semibold text-white hover:bg-white/20">
-              Chamar no WhatsApp
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <footer className="bg-gray-950 px-4 py-10 text-gray-400 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600">
-              <Factory className="h-5 w-5 text-white" />
-            </div>
+        <section id="contato" className="bg-[#071523] px-4 py-16 sm:px-8 lg:px-24">
+          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[420px_1fr]">
             <div>
-              <p className="font-bold text-white">PCP Pro Industrial</p>
-              <p className="text-sm">Controle sua produção do pedido à entrega.</p>
+              <SectionTitle eyebrow="Contato" title="Conte sua demanda industrial para a IMEC" />
+              <p className="mt-6 text-sm leading-6 text-slate-300">
+                Envie sua necessidade para atendimento técnico em caldeiraria, soldagem, manutenção, estruturas metálicas, NR-13 e rigging.
+              </p>
+              <div className="mt-6 grid gap-3">
+                <a href={`tel:+${phoneNumber}`} className="flex items-center gap-3 text-sm text-slate-200 hover:text-white">
+                  <Phone className="h-5 w-5 text-blue-500" /> {phoneDisplay}
+                </a>
+                <a href={`mailto:${email}`} className="flex items-center gap-3 text-sm text-slate-200 hover:text-white">
+                  <Mail className="h-5 w-5 text-blue-500" /> {email}
+                </a>
+                <span className="flex items-center gap-3 text-sm text-slate-200">
+                  <MapPin className="h-5 w-5 text-blue-500" /> Joinville - SC, Brasil
+                </span>
+              </div>
+              <div className="mt-8 grid grid-cols-3 gap-3">
+                {stats.map(([value, label]) => (
+                  <div key={label} className="rounded border border-slate-300/20 bg-[#101f30] p-4">
+                    <strong className="block text-xl text-white">{value}</strong>
+                    <span className="mt-1 block text-xs leading-4 text-slate-400">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <ContactForm />
+          </div>
+        </section>
+      </main>
+
+      <footer className="bg-[#030910] text-slate-300">
+        <div className="grid gap-8 border-b border-slate-300/15 px-4 py-8 sm:px-8 md:grid-cols-2 lg:grid-cols-[1.8fr_1fr_1.4fr_1.2fr] lg:px-24">
+          <div>
+            <Brand />
+            <p className="mt-5 max-w-sm text-sm leading-6">
+              Soluções industriais com engenharia, tecnologia e confiança para entregar valor e segurança em cada projeto.
+            </p>
+            <div className="mt-4 flex gap-2 text-xs text-blue-200">
+              <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Qualidade</span>
+              <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Segurança</span>
             </div>
           </div>
-          <p className="text-sm">© 2026 PCP Pro Industrial. Todos os direitos reservados.</p>
+
+          <div>
+            <h4 className="mb-3 text-xs font-black uppercase text-white">Navegação</h4>
+            {navItems.slice(0, 6).map(([href, label]) => (
+              <a key={href} href={href} className="block py-1 text-sm hover:text-white">
+                {label}
+              </a>
+            ))}
+          </div>
+
+          <div>
+            <h4 className="mb-3 text-xs font-black uppercase text-white">Contato</h4>
+            <a href={`tel:+${phoneNumber}`} className="flex items-center gap-2 py-1 text-sm hover:text-white">
+              <Phone className="h-4 w-4" /> {phoneDisplay}
+            </a>
+            <a href={`mailto:${email}`} className="flex items-center gap-2 py-1 text-sm hover:text-white">
+              <Mail className="h-4 w-4" /> {email}
+            </a>
+            <span className="flex items-center gap-2 py-1 text-sm">
+              <MapPin className="h-4 w-4" /> Joinville - SC, Brasil
+            </span>
+          </div>
+
+          <div>
+            <h4 className="mb-3 text-xs font-black uppercase text-white">Redes Sociais</h4>
+            <div className="flex gap-3">
+              {[Linkedin, Instagram, Youtube].map((Icon, index) => (
+                <a key={index} href="#contato" className="grid h-10 w-10 place-items-center rounded-full border border-slate-300/30 text-white hover:border-blue-500 hover:text-blue-400">
+                  <Icon className="h-5 w-5" />
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
+
+        <div className="flex flex-col gap-3 px-4 py-4 text-xs sm:px-8 md:flex-row md:items-center md:justify-between lg:px-24">
+          <span>© 2026 IMEC Metalúrgica. Todos os direitos reservados.</span>
+          <span>Desenvolvido com tecnologia e performance.</span>
+        </div>
+
+        <a href="#home" className="fixed bottom-6 right-6 grid h-11 w-11 place-items-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-950/40 hover:bg-blue-500" aria-label="Voltar ao topo">
+          <ArrowUp className="h-5 w-5" />
+        </a>
       </footer>
     </div>
   );
