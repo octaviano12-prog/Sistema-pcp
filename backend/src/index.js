@@ -318,6 +318,29 @@ app.get('/api/products', authenticateToken, async (req, res) => {
   res.json(await getDb().prepare(query).all(...params));
 });
 
+const productCodePrefixes = {
+  finished: 'PA',
+  intermediate: 'PI',
+  raw_material: 'MP',
+  input: 'IN',
+  packaging: 'EM',
+  service: 'SV',
+};
+
+async function generateProductCode(companyId, type = 'finished') {
+  const prefix = productCodePrefixes[type] || 'PR';
+  const rows = await getDb().prepare('SELECT code FROM products WHERE company_id = ? AND code LIKE ?').all(companyId, `${prefix}-%`);
+  const maxNumber = rows.reduce((max, row) => {
+    const match = String(row.code || '').match(new RegExp(`^${prefix}-(\\d+)$`, 'i'));
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return `${prefix}-${String(maxNumber + 1).padStart(3, '0')}`;
+}
+
+app.get('/api/products/next-code', authenticateToken, async (req, res) => {
+  res.json({ code: await generateProductCode(req.user.company_id, req.query.type || 'finished') });
+});
+
 app.get('/api/products/:id', authenticateToken, async (req, res) => {
   const product = await getDb().prepare('SELECT * FROM products WHERE id = ? AND company_id = ?').get(req.params.id, req.user.company_id);
   if (!product) return res.status(404).json({ error: 'Produto não encontrado' });
@@ -327,8 +350,10 @@ app.get('/api/products/:id', authenticateToken, async (req, res) => {
 app.post('/api/products', authenticateToken, async (req, res) => {
   const company_id = req.user.company_id;
   const { code, name, description, type, unit, cost_price, sale_price, min_stock, max_stock, lead_time_days, weight, dimensions } = req.body;
-  const result = await getDb().prepare('INSERT INTO products (company_id, code, name, description, type, unit, cost_price, sale_price, min_stock, max_stock, lead_time_days, weight, dimensions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(company_id, code, name, description, type || 'finished', unit || 'UN', cost_price || 0, sale_price || 0, min_stock || 0, max_stock || 0, lead_time_days || 0, weight || 0, dimensions);
-  res.json({ id: result.lastInsertRowid, ...req.body });
+  const finalType = type || 'finished';
+  const finalCode = code || await generateProductCode(company_id, finalType);
+  const result = await getDb().prepare('INSERT INTO products (company_id, code, name, description, type, unit, cost_price, sale_price, min_stock, max_stock, lead_time_days, weight, dimensions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(company_id, finalCode, name, description, finalType, unit || 'UN', cost_price || 0, sale_price || 0, min_stock || 0, max_stock || 0, lead_time_days || 0, weight || 0, dimensions);
+  res.json({ id: result.lastInsertRowid, ...req.body, code: finalCode, type: finalType });
 });
 
 app.put('/api/products/:id', authenticateToken, async (req, res) => {
