@@ -1,6 +1,8 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { api } from '../lib/api.js';
 import {
+  AlertCircle,
   BarChart3,
   Bell,
   Calendar,
@@ -23,7 +25,7 @@ import {
   Warehouse,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const navItems = [
   { path: '/app', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -63,6 +65,28 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [alertMenuOpen, setAlertMenuOpen] = useState(false);
+  const [alerts, setAlerts] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadAlerts = () => {
+      api.get('/dashboard/alerts')
+        .then(data => {
+          if (active) setAlerts(Array.isArray(data) ? data : []);
+        })
+        .catch(() => {
+          if (active) setAlerts([]);
+        });
+    };
+
+    loadAlerts();
+    const timer = setInterval(loadAlerts, 60000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -70,6 +94,18 @@ export default function DashboardLayout() {
   };
 
   const visibleItems = navItems.filter(item => !item.roles || item.roles.includes(user?.role));
+  const alertCount = alerts.length;
+
+  const goToAlert = (entity) => {
+    const routes = {
+      stock: '/app/stock',
+      production_order: '/app/production-orders',
+      product: '/app/products',
+      fiscal_invoice: '/app/fiscal-invoices',
+    };
+    navigate(routes[entity] || '/app');
+    setAlertMenuOpen(false);
+  };
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -124,10 +160,59 @@ export default function DashboardLayout() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative text-gray-500 hover:text-gray-700" aria-label="Alertas">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">3</span>
-            </button>
+            <div className="relative">
+              <button
+                className="relative text-gray-500 hover:text-gray-700"
+                aria-label="Alertas"
+                aria-expanded={alertMenuOpen}
+                onClick={() => {
+                  setAlertMenuOpen(!alertMenuOpen);
+                  setUserMenuOpen(false);
+                }}
+              >
+                <Bell className="h-5 w-5" />
+                {alertCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] text-white">
+                    {alertCount > 9 ? '9+' : alertCount}
+                  </span>
+                )}
+              </button>
+              {alertMenuOpen && (
+                <div className="absolute right-0 z-50 mt-3 w-[min(360px,calc(100vw-2rem))] rounded-xl border border-gray-200 bg-white shadow-xl">
+                  <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Alertas operacionais</p>
+                      <p className="text-xs text-gray-500">{alertCount} pendencia(s) encontrada(s)</p>
+                    </div>
+                    <button
+                      className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                      onClick={() => {
+                        navigate('/app');
+                        setAlertMenuOpen(false);
+                      }}
+                    >
+                      Ver dashboard
+                    </button>
+                  </div>
+                  {alertCount > 0 ? (
+                    <div className="max-h-80 overflow-y-auto p-2">
+                      {alerts.slice(0, 8).map((alert, index) => (
+                        <button
+                          key={`${alert.entity || 'alert'}-${index}`}
+                          onClick={() => goToAlert(alert.entity)}
+                          className="flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left hover:bg-slate-50"
+                        >
+                          <AlertCircle className={`mt-0.5 h-4 w-4 flex-shrink-0 ${alert.type === 'critical' || alert.type === 'danger' ? 'text-red-500' : alert.type === 'warning' ? 'text-amber-500' : 'text-blue-500'}`} />
+                          <span className="text-sm text-gray-700">{alert.message}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm text-gray-500">Nenhum alerta no momento.</div>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="relative">
               <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 text-sm">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-xs font-medium text-white">{user?.name?.charAt(0) || 'U'}</div>
